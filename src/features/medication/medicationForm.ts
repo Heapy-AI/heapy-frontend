@@ -45,14 +45,16 @@ export function medicationPayload(draft: MedicationDraft): MedicationInput {
     (draft.endDate &&
       (!dateValid(draft.endDate) || draft.endDate < draft.startDate))
   )
-    throw new Error('시작일과 종료일을 확인해 주세요. 예: 2026-09-11');
+    throw new Error('달력에서 시작일과 종료일을 확인해 주세요.');
   const times = draft.times.split(',').map(time => time.trim());
   if (
     times.length > 12 ||
     times.some(time => !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) ||
     new Set(times).size !== times.length
   )
-    throw new Error('복용 시각을 08:00, 20:00처럼 중복 없이 입력해 주세요.');
+    throw new Error(
+      '복용 시각을 중복 없이 1개 이상, 최대 12개까지 선택해 주세요.',
+    );
   return {
     displayName: draft.displayName.trim(),
     dosageText: draft.dosageText.trim(),

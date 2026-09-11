@@ -24,6 +24,7 @@ import {
   medicationPayload,
 } from './medicationForm';
 import { medicationStyles as s } from './MedicationScreen';
+import { MedicationScheduleFields } from './MedicationScheduleFields';
 
 export function MedicationRegistrationScreen({
   navigation,
@@ -446,35 +447,17 @@ export function MedicationRegistrationScreen({
                   placeholder="기억할 내용을 적어 주세요"
                 />
                 <Text style={s.section}>복용 일정</Text>
-                <FormField
-                  label="복용 시작일"
-                  value={draft.startDate}
-                  maxLength={10}
-                  editable={!busy && !readOnly}
-                  onChangeText={value => change('startDate', value)}
-                  placeholder="YYYY-MM-DD"
-                  keyboardType="numbers-and-punctuation"
+                <MedicationScheduleFields
+                  value={draft}
+                  disabled={busy || !!readOnly}
+                  onChange={patch =>
+                    setDrafts(current =>
+                      current.map((item, i) =>
+                        i === index ? { ...item, ...patch } : item,
+                      ),
+                    )
+                  }
                 />
-                <FormField
-                  label="복용 종료일 (선택)"
-                  value={draft.endDate}
-                  maxLength={10}
-                  editable={!busy && !readOnly}
-                  onChangeText={value => change('endDate', value)}
-                  placeholder="종료일이 없으면 비워 두세요"
-                  keyboardType="numbers-and-punctuation"
-                />
-                {!readOnly && (
-                  <FormField
-                    label="매일 복용 시각"
-                    value={draft.times}
-                    maxLength={100}
-                    editable={!busy}
-                    onChangeText={value => change('times', value)}
-                    placeholder="예: 08:00, 20:00"
-                    keyboardType="numbers-and-punctuation"
-                  />
-                )}
               </View>
             );
           })}

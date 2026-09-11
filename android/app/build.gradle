@@ -88,13 +88,16 @@ android {
         versionName "1.0"
         manifestPlaceholders = [usesCleartextTraffic: "false"]
     }
-    signingConfigs {
+    // 작성자: 김진우 — 기존 로컬 키는 유지하고, 새 복제 환경은 기본 디버그 키를 자동 생성한다.
+    if (file('debug.keystore').exists()) {
+      signingConfigs {
         debug {
             storeFile file('debug.keystore')
             storePassword 'android'
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+      }
     }
     buildTypes {
         debug {

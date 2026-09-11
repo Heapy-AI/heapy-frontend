@@ -32,7 +32,6 @@ local.properties
 *.hprof
 .cxx/
 *.keystore
-!debug.keystore
 .kotlin/
 
 # node.js
@@ -86,18 +85,44 @@ yarn-error.log
 
 # 로컬 문서 및 작업 자료
 # 작성자: 김진우
-docs/
-Reference/
+/docs/
+/Reference/
 /preview/
-artifacts/
-*.md
-*.mdx
-*.pdf
-*.docx
-*.pptx
-*.xlsx
+/artifacts/
+/__tests__/
+/jest.config.js
+/fixtures/
+/screenshots/
+/reports/
+/tmp/
+/temp/
+/scratch/
+/dev-tools/
+/*.md
+/*.mdx
+# 작성자: 김진우 — 실행용 문서·데이터와 라이선스는 확장자로 일괄 제외하지 않는다.
+!/LICENSE*
+!/LICENCE*
+!/NOTICE*
+!/COPYING*
 .agents/
 .codex/
+
+# 작성자: 김진우 — 로컬 캐시와 가상환경
+.cache/
+.npm/
+.parcel-cache/
+.turbo/
+.vite/
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.eslintcache
 
 # 환경별 비밀 설정
 .env.*
