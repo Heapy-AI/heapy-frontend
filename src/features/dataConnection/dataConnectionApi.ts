@@ -5,9 +5,28 @@ import {
   HealthConnection,
   OcrJob,
   SamsungPermission,
+  CheckupDetail,
+  CheckupRecord,
+  ConfirmedCheckup,
 } from './types';
 
 export const dataConnectionApi = {
+  async getCheckup(recordId: string, signal: AbortSignal) {
+    return (
+      await apiClient.get<CheckupDetail>(
+        `/api/checkups/${encodeURIComponent(recordId)}`,
+        { signal },
+      )
+    ).data;
+  },
+  async getCheckups(signal: AbortSignal) {
+    return (
+      await apiClient.get<CheckupRecord[]>('/api/checkups', {
+        signal,
+        params: { limit: 100 },
+      })
+    ).data;
+  },
   async getConnections() {
     return (await apiClient.get<HealthConnection[]>('/api/health-connections'))
       .data;
@@ -56,7 +75,7 @@ export const dataConnectionApi = {
   },
   async confirm(jobId: string, payload: ConfirmCheckup, key: string) {
     return (
-      await apiClient.post<{ recordId: string }>(
+      await apiClient.post<ConfirmedCheckup>(
         `/api/checkups/ocr-jobs/${encodeURIComponent(jobId)}/confirm`,
         payload,
         { headers: { 'Idempotency-Key': key }, timeout: 45000 },

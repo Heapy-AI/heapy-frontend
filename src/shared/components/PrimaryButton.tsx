@@ -41,7 +41,13 @@ export function PrimaryButton({
 }
 const styles = StyleSheet.create({
   wrap: { borderRadius: 18, overflow: 'hidden' },
-  button: { height: 60, alignItems: 'center', justifyContent: 'center' },
+  button: {
+    minHeight: 60,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   label: { color: '#fff', fontSize: 16, fontWeight: '700' },
   disabled: { opacity: 0.45 },
   pressed: { opacity: 0.85 },

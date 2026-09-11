@@ -9,6 +9,8 @@ export type RootStackParamList = {
   ProfileComplete: undefined;
   DataConnection: { from?: 'my' } | undefined;
   CheckupRegistration: { from?: 'my' } | undefined;
+  CheckupDetail: { recordId: string };
+  CheckupHistory: undefined;
   Home: undefined;
 };
 export type RootRoute = keyof RootStackParamList;

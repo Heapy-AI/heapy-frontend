@@ -1,27 +1,52 @@
 import React, { PropsWithChildren } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '../theme/tokens';
+import { chatColors, colors } from '../theme/tokens';
 
 export function ScreenBackground({
   children,
   enabled = true,
-}: PropsWithChildren<{ enabled?: boolean }>) {
+  theme = 'default',
+}: PropsWithChildren<{ enabled?: boolean; theme?: 'default' | 'chat' }>) {
   return (
     <SafeAreaView
       edges={enabled ? undefined : []}
-      style={[styles.safe, !enabled && styles.transparent]}
+      testID={theme === 'chat' ? 'chat-safe-area' : undefined}
+      style={[
+        styles.safe,
+        theme === 'chat' && styles.chat,
+        !enabled && styles.transparent,
+      ]}
     >
-      {enabled && <View style={styles.greenCircle} />}
-      {enabled && <View style={styles.blueCircle} />}
+      {enabled && theme === 'default' && (
+        <View pointerEvents="none" style={styles.decoration}>
+          <View style={styles.greenCircle} />
+          <View style={styles.blueCircle} />
+        </View>
+      )}
       <View style={styles.content}>{children}</View>
     </SafeAreaView>
   );
 }
 const styles = StyleSheet.create({
+  decoration: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    overflow: 'hidden',
+  },
   transparent: { backgroundColor: 'transparent' },
+  chat: { backgroundColor: chatColors.surface },
   safe: { flex: 1, backgroundColor: colors.background, overflow: 'hidden' },
-  content: { flex: 1 },
+  content: {
+    flex: 1,
+    minHeight: 0,
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
+  },
   greenCircle: {
     position: 'absolute',
     width: 170,

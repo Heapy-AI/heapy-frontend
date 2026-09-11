@@ -28,15 +28,21 @@ import { OnboardingShell } from '../shared/components/OnboardingShell';
 import { ProfileCompleteScreen } from '../features/dataConnection/ProfileCompleteScreen';
 import { DataConnectionScreen } from '../features/dataConnection/DataConnectionScreen';
 import { CheckupRegistrationScreen } from '../features/dataConnection/CheckupRegistrationScreen';
+import { CheckupDetailScreen } from '../features/dataConnection/CheckupDetailScreen';
+import { CheckupHistoryScreen } from '../features/dataConnection/CheckupHistoryScreen';
+import { useReducedMotion } from '../shared/hooks/useReducedMotion';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 export function RootNavigator() {
+  const reducedMotion = useReducedMotion();
   const navigation = useNavigationContainerRef<RootStackParamList>();
   const queryClient = useQueryClient();
   const [route, setRoute] = React.useState<RootRoute>();
   const [activeRoute, setActiveRoute] = React.useState<RootRoute>();
   const [loadError, setLoadError] = React.useState(false);
   const [attempt, setAttempt] = React.useState(0);
-  React.useEffect(() => { onboardingDraft.clear(); }, []);
+  React.useEffect(() => {
+    onboardingDraft.clear();
+  }, []);
   React.useEffect(() => {
     let active = true;
     setLoadError(false);
@@ -56,7 +62,11 @@ export function RootNavigator() {
           return;
         }
         if (!active) return;
-        if (!tokens.nextStep || !tokens.expiresAt || Date.parse(tokens.expiresAt) <= Date.now()) {
+        if (
+          !tokens.nextStep ||
+          !tokens.expiresAt ||
+          Date.parse(tokens.expiresAt) <= Date.now()
+        ) {
           await tokenStorage.clear();
           if (active) setRoute('Login');
           return;
@@ -81,10 +91,13 @@ export function RootNavigator() {
           label="다시 시도"
           onPress={() => setAttempt(value => value + 1)}
         />
-        <PrimaryButton label="로그인 화면으로" onPress={() => {
-          setLoadError(false);
-          setRoute('Login');
-        }} />
+        <PrimaryButton
+          label="로그인 화면으로"
+          onPress={() => {
+            setLoadError(false);
+            setRoute('Login');
+          }}
+        />
       </View>
     );
   if (!route)
@@ -111,7 +124,8 @@ export function RootNavigator() {
           initialRouteName={route}
           screenOptions={{
             headerShown: false,
-            animation: 'none',
+            animation: reducedMotion ? 'none' : 'slide_from_right',
+            animationDuration: 280,
             contentStyle: { backgroundColor: 'transparent' },
           }}
         >
@@ -126,6 +140,11 @@ export function RootNavigator() {
             component={HealthBackgroundScreen}
           />
           <Stack.Screen name="Home" component={HomeScreen} />
+          <Stack.Screen name="CheckupDetail" component={CheckupDetailScreen} />
+          <Stack.Screen
+            name="CheckupHistory"
+            component={CheckupHistoryScreen}
+          />
           <Stack.Screen
             name="ProfileComplete"
             component={ProfileCompleteScreen}

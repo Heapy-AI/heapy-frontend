@@ -13,4 +13,9 @@ export const colors = {
 } as const;
 
 export const spacing = { xs: 6, sm: 10, md: 16, lg: 24, xl: 32 } as const;
+// 작성자: 김진우 — 챗봇의 상태바 배경과 헤더에 같은 표면 색을 사용한다.
+export const chatColors = {
+  surface: '#F7F3FF',
+  backgroundEnd: '#EDE6FF',
+} as const;
 export const radius = { sm: 12, md: 18, lg: 28, pill: 999 } as const;

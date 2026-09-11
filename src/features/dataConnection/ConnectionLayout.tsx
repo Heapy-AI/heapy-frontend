@@ -10,6 +10,7 @@ import {
 import { ScreenBackground } from '../../shared/components/ScreenBackground';
 import { KeyboardAwareScrollView } from '../../shared/components/KeyboardAwareScrollView';
 import { colors } from '../../shared/theme/tokens';
+import { useResponsiveLayout } from '../../shared/hooks/useResponsiveLayout';
 
 export function ConnectionLayout({
   title,
@@ -21,6 +22,7 @@ export function ConnectionLayout({
   onBack?: () => void;
   footer?: React.ReactNode;
 }>) {
+  const { padding } = useResponsiveLayout();
   return (
     <ScreenBackground>
       <View style={connectionStyles.header}>
@@ -41,19 +43,29 @@ export function ConnectionLayout({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <KeyboardAwareScrollView
-          contentContainerStyle={connectionStyles.content}
+          contentContainerStyle={[
+            connectionStyles.content,
+            { paddingHorizontal: padding },
+          ]}
         >
           {children}
         </KeyboardAwareScrollView>
-        {footer && <View style={connectionStyles.footer}>{footer}</View>}
+        {footer && (
+          <View
+            style={[connectionStyles.footer, { paddingHorizontal: padding }]}
+          >
+            {footer}
+          </View>
+        )}
       </KeyboardAvoidingView>
     </ScreenBackground>
   );
 }
 export const connectionStyles = StyleSheet.create({
   flex: { flex: 1 },
+  section: { gap: 16 },
   header: {
-    height: 48,
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -66,7 +78,13 @@ export const connectionStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   backText: { fontSize: 34, color: colors.text },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: colors.text },
+  headerTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.text,
+  },
   content: { padding: 24, gap: 20, paddingBottom: 32 },
   eyebrow: {
     color: colors.primaryDark,

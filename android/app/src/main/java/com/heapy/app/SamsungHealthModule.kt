@@ -6,6 +6,9 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
+import com.facebook.react.bridge.ReadableMap
+import java.time.LocalDate
+import com.facebook.react.common.LifecycleState
 import com.samsung.android.sdk.health.data.HealthDataService
 import com.samsung.android.sdk.health.data.error.ErrorCode
 import com.samsung.android.sdk.health.data.error.HealthDataException
@@ -43,7 +46,6 @@ class SamsungHealthModule(private val context: ReactApplicationContext) : ReactC
         "nutrition" to Permission.of(DataTypes.NUTRITION, AccessType.READ),
     )
     private val permissions = permissionByType.values.toSet()
-    private val stepPermissions = setOf(permissionByType.getValue("steps"))
     private val store by lazy { HealthDataService.getStore(context, scope) }
     private var requestingPermissions = false
 
@@ -68,10 +70,7 @@ class SamsungHealthModule(private val context: ReactApplicationContext) : ReactC
                     store.requestPermissions(permissions, activity)
                     granted = store.getGrantedPermissions(permissions)
                 }
-                if (granted.isEmpty()) {
-                    promise.reject("SAMSUNG_PERMISSION", "허용한 건강 데이터가 없어요. 읽기 권한을 선택해 주세요.")
-                    return@launch
-                }
+                // 작성자: 김진우 — 부분·전체 철회도 서버에 실제 권한 상태를 전달한다.
                 val preferences = context.getSharedPreferences("heapy.health.installation", Context.MODE_PRIVATE)
                 val installationId = preferences.getString("id", null) ?: UUID.randomUUID().toString().also {
                     preferences.edit().putString("id", it).apply()
@@ -101,8 +100,8 @@ class SamsungHealthModule(private val context: ReactApplicationContext) : ReactC
     fun readTodaySteps(promise: Promise) {
         scope.launch {
             try {
-                if (!store.getGrantedPermissions(stepPermissions).containsAll(stepPermissions)) {
-                    promise.reject("SAMSUNG_PERMISSION", "걸음 수 읽기 권한을 다시 허용해 주세요.")
+                if (!store.getGrantedPermissions(permissions).containsAll(permissions)) {
+                    promise.reject("SAMSUNG_PERMISSION", "연결에 필요한 11개 읽기 권한을 모두 허용해 주세요.")
                     return@launch
                 }
                 val now = LocalDateTime.now(ZoneId.of("Asia/Seoul"))
@@ -126,7 +125,59 @@ class SamsungHealthModule(private val context: ReactApplicationContext) : ReactC
         }
     }
 
-    private fun reject(error: Exception, promise: Promise) {
+    /** 자동 동기화에서는 권한 창을 띄우지 않고 현재 권한만 확인한다. 작성자: 김진우 */
+    @ReactMethod
+    fun getReadPermissions(promise: Promise) {
+        scope.launch {
+            try {
+                val granted = store.getGrantedPermissions(permissions)
+                val preferences = context.getSharedPreferences("heapy.health.installation", Context.MODE_PRIVATE)
+                val installationId = preferences.getString("id", null) ?: UUID.randomUUID().toString().also {
+                    preferences.edit().putString("id", it).apply()
+                }
+                promise.resolve(Arguments.createMap().apply {
+                    putString("deviceInstallationId", installationId)
+                    putArray("grantedDataTypes", Arguments.createArray().apply {
+                        permissionByType.forEach { (type, permission) -> if (granted.contains(permission)) pushString(type) }
+                    })
+                    putString("sdkVersion", "1.1.0")
+                    putString("permissionCheckedAt", Instant.now().toString())
+                })
+            } catch (error: Exception) { reject(error, promise, false) }
+        }
+    }
+
+    /** 한 페이지씩 읽어 메모리와 네트워크 배치 크기를 제한한다. 작성자: 김진우 */
+    @ReactMethod
+    fun readHealthPage(options: ReadableMap, promise: Promise) {
+        scope.launch {
+            try {
+                if (!store.getGrantedPermissions(permissions).containsAll(permissions)) {
+                    promise.reject("SAMSUNG_PERMISSION", "삼성헬스의 11개 읽기 권한을 모두 허용해 주세요.")
+                    return@launch
+                }
+                if (context.currentActivity == null || context.lifecycleState != LifecycleState.RESUMED) {
+                    promise.reject("SAMSUNG_BACKGROUND", "앱을 열어 두면 건강 기록 동기화를 이어갈 수 있어요.")
+                    return@launch
+                }
+                val reader = SamsungHealthReader(store)
+                val type = requireNotNull(options.getString("dataType"))
+                val result = if (type == "activity") {
+                    reader.activity(LocalDate.parse(options.getString("from")), LocalDate.parse(options.getString("to")),
+                        Instant.parse(options.getString("cutoff")))
+                } else {
+                    reader.page(type, Instant.parse(options.getString("from")), Instant.parse(options.getString("to")),
+                        options.getBoolean("changes"), if (options.hasKey("pageToken")) options.getString("pageToken") else null)
+                }
+                promise.resolve(result)
+            } catch (error: CancellationException) {
+                promise.reject("SAMSUNG_CANCELLED", "건강 기록 읽기가 취소되었어요.")
+                throw error
+            } catch (error: Exception) { reject(error, promise, false) }
+        }
+    }
+
+    private fun reject(error: Exception, promise: Promise, resolve: Boolean = true) {
         val code = (error as? HealthDataException)?.errorCode
         val message = when (code) {
             ErrorCode.ERR_PLATFORM_NOT_INSTALLED -> "삼성 헬스를 설치한 뒤 다시 연결해 주세요."
@@ -137,7 +188,7 @@ class SamsungHealthModule(private val context: ReactApplicationContext) : ReactC
             ErrorCode.ERR_ACCESS_CONTROL, ErrorCode.ERR_INVALID_CALLER -> "삼성 헬스의 데이터 읽기 개발자 모드 또는 앱 등록 정보를 확인해 주세요."
             else -> "삼성 헬스에 연결하지 못했어요. 앱과 읽기 권한 설정을 확인한 뒤 다시 시도해 주세요."
         }
-        if (error is ResolvablePlatformException && error.hasResolution) {
+        if (resolve && error is ResolvablePlatformException && error.hasResolution) {
             context.currentActivity?.let { activity ->
                 runCatching { error.resolve(activity) }
             }

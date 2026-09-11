@@ -9,6 +9,7 @@ import {
   AccessibilityInfo,
   Animated,
   Easing,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -17,6 +18,7 @@ import {
 import { RootRoute } from '../../navigation/routes';
 import { ScreenBackground } from './ScreenBackground';
 import { colors } from '../theme/tokens';
+import { ScreenTransition } from './ScreenTransition';
 
 const stages = ['BasicProfile', 'BodyProfile', 'Lifestyle', 'HealthBackground'];
 const titles = ['기본 정보', '신체 정보', '생활 정보', '건강 배경'];
@@ -109,7 +111,9 @@ export function OnboardingShell({
             </View>
           </View>
         )}
-        <View style={styles.content}>{children}</View>
+        <ScreenTransition transitionKey={route} enabled={Platform.OS === 'web'}>
+          {children}
+        </ScreenTransition>
       </ScreenBackground>
     </OnboardingShellContext.Provider>
   );

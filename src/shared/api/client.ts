@@ -30,6 +30,12 @@ apiClient.interceptors.request.use(async config => {
     return config;
   }
   const tokens = await tokenStorage.get();
+  const expected = config.headers.Authorization;
+  const actual = tokens
+    ? `${tokens.tokenType || 'Bearer'} ${tokens.accessToken}`
+    : undefined;
+  if (expected && expected !== actual)
+    throw new Error('로그인 계정이 변경되어 요청을 중단했어요.');
   if (tokens)
     config.headers.Authorization = `${tokens.tokenType || 'Bearer'} ${
       tokens.accessToken
@@ -47,7 +53,14 @@ apiClient.interceptors.response.use(
   async (error: AxiosError<ApiErrorBody>) => {
     const body = error.response?.data;
     const status = error.response?.status ?? 0;
-    if (isUnauthorizedStatus(status)) {
+    const currentTokens = await tokenStorage.get();
+    const currentAuthorization = currentTokens
+      ? `${currentTokens.tokenType || 'Bearer'} ${currentTokens.accessToken}`
+      : undefined;
+    if (
+      isUnauthorizedStatus(status) &&
+      error.config?.headers.Authorization === currentAuthorization
+    ) {
       await tokenStorage.clear();
       unauthorizedHandler?.();
     }

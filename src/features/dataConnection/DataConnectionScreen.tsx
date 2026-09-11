@@ -11,11 +11,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { RootStackParamList } from '../../navigation/routes';
 import { createSessionNavigationState } from '../../navigation/onboardingFlow';
 import { PrimaryButton } from '../../shared/components/PrimaryButton';
-import { createIdempotencyKey } from '../../shared/utils/idempotency';
+import { syncSamsungHealth } from './samsungSync';
 import { ConnectionLayout, connectionStyles as s } from './ConnectionLayout';
 import { dataConnectionApi } from './dataConnectionApi';
 import {
   requestSamsungPermissions,
+  hasRequiredSamsungPermissions,
   readSamsungTodaySteps,
 } from './samsungHealth';
 import { SamsungSteps } from './types';
@@ -27,6 +28,7 @@ export function DataConnectionScreen({
 }: NativeStackScreenProps<RootStackParamList, 'DataConnection'>) {
   const client = useQueryClient();
   const [todaySteps, setTodaySteps] = useState<SamsungSteps>();
+  const [syncProgress, setSyncProgress] = useState('');
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [grantedTypes, setGrantedTypes] = useState<string[]>([]);
   const readSteps = useMutation({
@@ -51,26 +53,44 @@ export function DataConnectionScreen({
       setTodaySteps(undefined);
       readSteps.reset();
       const permissions = await requestSamsungPermissions();
-      setPermissionGranted(true);
+      const complete = hasRequiredSamsungPermissions(
+        permissions.grantedDataTypes,
+      );
+      setPermissionGranted(complete);
       setGrantedTypes(permissions.grantedDataTypes);
+      const connection = await syncSamsungHealth({
+        permission: permissions,
+        onProgress: setSyncProgress,
+      });
+      client.invalidateQueries({ queryKey: ['health-connections'] });
+      if (!complete || !connection.connected)
+        throw new Error(
+          '삼성 헬스를 연결하려면 요청한 11개 항목의 읽기 권한을 모두 허용해 주세요.',
+        );
       try {
-        if (permissions.grantedDataTypes.includes('steps'))
-          await readSteps.mutateAsync();
+        await readSteps.mutateAsync();
       } catch {
         setTodaySteps(undefined);
       }
-      return dataConnectionApi.connectSamsung(
-        permissions,
-        createIdempotencyKey(),
-      );
+      return connection;
     },
     onSuccess: () => {
+      setSyncProgress('삼성헬스 건강 기록을 동기화했어요.');
       client.invalidateQueries({ queryKey: ['health-connections'] });
+      client.invalidateQueries({ queryKey: ['health'] });
+    },
+    onError: () => {
+      setSyncProgress('');
+      client.invalidateQueries({ queryKey: ['health-connections'] });
+      client.invalidateQueries({ queryKey: ['health'] });
     },
   });
   const connected =
-    connections.data?.some(item => item.status === 'connected') ||
-    connect.isSuccess;
+    connections.data?.some(
+      item =>
+        item.status === 'connected' &&
+        hasRequiredSamsungPermissions(item.grantedDataTypes),
+    ) || connect.isSuccess;
   const fromMy = route?.params?.from === 'my';
   const home = () =>
     fromMy
@@ -81,23 +101,20 @@ export function DataConnectionScreen({
       title="건강 데이터 연결"
       onBack={fromMy ? home : undefined}
       footer={
-        <>
-          {(connected || checkup.data) && (
-            <PrimaryButton
-              label={fromMy ? '마이로 돌아가기' : '홈으로 시작하기'}
+        !fromMy && (
+          <>
+            {(connected || checkup.data) && (
+              <PrimaryButton label="홈으로 시작하기" onPress={home} />
+            )}
+            <Pressable
+              accessibilityRole="button"
               onPress={home}
-            />
-          )}
-          <Pressable
-            accessibilityRole="button"
-            onPress={home}
-            style={s.textButton}
-          >
-            <Text style={s.textButtonLabel}>
-              {fromMy ? '마이로 돌아가기' : '나중에 하기'}
-            </Text>
-          </Pressable>
-        </>
+              style={s.textButton}
+            >
+              <Text style={s.textButtonLabel}>나중에 하기</Text>
+            </Pressable>
+          </>
+        )
       }
     >
       <View style={styles.intro}>
@@ -113,14 +130,23 @@ export function DataConnectionScreen({
         <Text style={s.cardTitle}>Samsung Health</Text>
         <Text style={s.description}>
           수면, 심박수, 혈당, 혈압, 체성분, 운동, 오른 층수, 걸음 수, 활동 요약,
-          물 섭취, 영양의 읽기 권한을 요청해요. 허용할 항목을 직접 선택할 수
-          있어요.
+          물 섭취, 영양까지 11개 항목을 모두 허용하면 연결돼요. 기록이 없는
+          항목도 읽기 권한만 허용하면 괜찮아요.
         </Text>
         {(connected || permissionGranted) && (
           <Text style={s.badge}>
             {permissionGranted
               ? `휴대폰 읽기 권한 ${grantedTypes.length}/11개 허용됨`
               : '저장된 연결 기록 있음'}
+          </Text>
+        )}
+        <Text style={s.description}>
+          처음 연결하면 최근 1년의 건강 기록을 가져와요. 이후에는 내 건강에서
+          아래로 당겨 최신 기록을 동기화할 수 있어요.
+        </Text>
+        {!!syncProgress && (
+          <Text accessibilityLiveRegion="polite" style={s.description}>
+            {syncProgress}
           </Text>
         )}
         {todaySteps && (
@@ -135,7 +161,7 @@ export function DataConnectionScreen({
             </Text>
           </View>
         )}
-        {grantedTypes.includes('steps') && (
+        {permissionGranted && connected && (
           <ConnectionAction
             label="오늘 걸음 수 다시 읽기"
             loading={readSteps.isPending}
@@ -146,14 +172,14 @@ export function DataConnectionScreen({
           <Text style={s.error}>{readSteps.error.message}</Text>
         )}
         <ConnectionAction
-          label={connected ? '연결 권한 다시 확인' : '삼성헬스 연결하기'}
+          label={connected ? '건강 기록 다시 동기화' : '삼성헬스 연결하기'}
           loading={connect.isPending}
           onPress={() => connect.mutate()}
         />
         {connect.error && (
           <Text accessibilityRole="alert" style={s.error}>
             {permissionGranted
-              ? '읽기 권한은 허용됐지만 연결 정보를 저장하지 못했어요. '
+              ? '읽기 권한은 허용됐지만 건강 기록 동기화를 완료하지 못했어요. '
               : ''}
             {connect.error.message}
           </Text>
@@ -201,6 +227,7 @@ function ConnectionAction({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={label}
       disabled={loading}
       onPress={onPress}
       style={styles.action}

@@ -13,6 +13,7 @@ import { ScreenBackground } from './ScreenBackground';
 import { colors } from '../theme/tokens';
 import { KeyboardAwareScrollView } from './KeyboardAwareScrollView';
 import { OnboardingShellContext } from './OnboardingShell';
+import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 
 export function OnboardingLayout({
   title,
@@ -31,6 +32,7 @@ export function OnboardingLayout({
   footer: React.ReactNode;
 }>) {
   const shell = React.useContext(OnboardingShellContext);
+  const { padding } = useResponsiveLayout();
   const transition = React.useRef(new Animated.Value(1)).current;
   React.useEffect(() => {
     if (!shell.step || shell.step !== step - 1) return;
@@ -91,15 +93,20 @@ export function OnboardingLayout({
         >
           <KeyboardAwareScrollView
             keyboardShouldPersistTaps="handled"
-            contentContainerStyle={styles.scroll}
+            contentContainerStyle={[
+              styles.scroll,
+              { paddingHorizontal: padding },
+            ]}
           >
             <Text style={styles.headline}>{headline}</Text>
             {description ? (
               <Text style={styles.description}>{description}</Text>
             ) : null}
-            <View style={styles.card}>{children}</View>
+            <View style={[styles.card, { padding }]}>{children}</View>
           </KeyboardAwareScrollView>
-          <View style={styles.footer}>{footer}</View>
+          <View style={[styles.footer, { paddingHorizontal: padding }]}>
+            {footer}
+          </View>
         </Animated.View>
       </KeyboardAvoidingView>
     </ScreenBackground>

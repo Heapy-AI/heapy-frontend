@@ -20,8 +20,12 @@ import { tokenStorage } from '../../shared/storage/tokenStorage';
 import { colors } from '../../shared/theme/tokens';
 import { createIdempotencyKey } from '../../shared/utils/idempotency';
 import { onboardingDraft } from '../onboarding/onboardingDraft';
+import { ConfirmModal } from '../../shared/components/ConfirmModal';
+import { useResponsiveLayout } from '../../shared/hooks/useResponsiveLayout';
+import { AmbientEffect } from '../../shared/components/AmbientEffect';
 
 type Props = {
+  active?: boolean;
   navigation: NativeStackNavigationProp<RootStackParamList, 'Home'>;
 };
 const icons = {
@@ -65,9 +69,12 @@ function MenuRow({
   );
 }
 
-export function MyScreen({ navigation }: Props) {
+export function MyScreen({ navigation, active = true }: Props) {
   const client = useQueryClient();
   const [notice, setNotice] = useState('');
+  const [confirmLogout, setConfirmLogout] = useState(false);
+  const { compact, padding } = useResponsiveLayout();
+  const logoutStarted = useRef(false);
   const logoutKey = useRef(createIdempotencyKey());
   const profile = useQuery({
     queryKey: ['me'],
@@ -95,7 +102,7 @@ export function MyScreen({ navigation }: Props) {
   return (
     <View style={s.screen}>
       <ScrollView
-        contentContainerStyle={s.content}
+        contentContainerStyle={[s.content, { paddingHorizontal: padding }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -134,7 +141,11 @@ export function MyScreen({ navigation }: Props) {
               end={{ x: 1, y: 1 }}
               style={s.profile}
             >
-              <View style={s.profileTop}>
+              <AmbientEffect
+                active={active && !confirmLogout}
+                testID="profile-wave"
+              />
+              <View style={[s.profileTop, compact && { flexWrap: 'wrap' }]}>
                 <View style={s.avatar}>
                   <Image
                     source={icons.profile}
@@ -159,7 +170,7 @@ export function MyScreen({ navigation }: Props) {
                 <Pressable
                   accessibilityRole="button"
                   onPress={() => preparing('프로필 수정')}
-                  style={s.edit}
+                  style={[s.edit, compact && { marginLeft: 'auto' }]}
                 >
                   <Text style={s.editText}>프로필 수정</Text>
                 </Pressable>
@@ -260,7 +271,10 @@ export function MyScreen({ navigation }: Props) {
             busy: logout.isPending,
           }}
           disabled={logout.isPending}
-          onPress={() => logout.mutate()}
+          onPress={() => {
+            logout.reset();
+            setConfirmLogout(true);
+          }}
           style={({ pressed }) => [s.logout, pressed && s.pressed]}
         >
           {logout.isPending ? (
@@ -269,14 +283,32 @@ export function MyScreen({ navigation }: Props) {
             <Text style={s.logoutText}>로그아웃</Text>
           )}
         </Pressable>
-        {logout.isError && (
-          <Text accessibilityRole="alert" style={s.error}>
-            {logout.error instanceof Error
-              ? logout.error.message
-              : '로그아웃하지 못했어요. 다시 시도해 주세요.'}
-          </Text>
-        )}
       </ScrollView>
+      <ConfirmModal
+        visible={confirmLogout}
+        title="로그아웃 하시겠습니까"
+        description="다시 이용하려면 로그인해 주세요."
+        confirmLabel="로그아웃"
+        pending={logout.isPending}
+        error={
+          logout.isError
+            ? '로그아웃하지 못했어요. 다시 시도해 주세요.'
+            : undefined
+        }
+        onCancel={() => {
+          setConfirmLogout(false);
+          logout.reset();
+        }}
+        onConfirm={() => {
+          if (logoutStarted.current) return;
+          logoutStarted.current = true;
+          logout.mutate(undefined, {
+            onSettled: () => {
+              logoutStarted.current = false;
+            },
+          });
+        }}
+      />
       {!!notice && (
         <View style={s.noticeBar}>
           <Text accessibilityLiveRegion="polite" style={s.notice}>
@@ -318,7 +350,7 @@ const s = StyleSheet.create({
     color: colors.text,
     marginBottom: 20,
   },
-  profile: { borderRadius: 28, padding: 16 },
+  profile: { borderRadius: 28, padding: 16, overflow: 'hidden' },
   profileTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   avatar: {
     width: 52,
