@@ -21,7 +21,8 @@ import {
   readSamsungTodaySteps,
 } from './samsungHealth';
 import { SamsungSteps } from './types';
-import { colors } from '../../shared/theme/tokens';
+import LinearGradient from 'react-native-linear-gradient';
+import Svg, { Path } from 'react-native-svg';
 
 export function DataConnectionScreen({
   navigation,
@@ -111,48 +112,120 @@ export function DataConnectionScreen({
       }
     >
       <View style={styles.intro}>
-        <View style={styles.iconTile}>
-          <Image
-            source={require('../../assets/my/samsung.png')}
-            style={styles.icon}
-          />
-        </View>
+        <Text style={styles.eyebrow}>나의 건강을 잇는 연결</Text>
         <Text style={styles.headline}>매일의 건강, 한곳에</Text>
-        <Text style={s.description}>삼성헬스의 기록을 HEAPY와 연결해요.</Text>
+        <Text style={styles.introDescription}>
+          삼성헬스의 기록을 HEAPY와 연결해요.
+        </Text>
       </View>
-      <View style={[s.card, styles.card]}>
+      <LinearGradient
+        colors={['#10234E', '#173D80', '#2455A8']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.card}
+      >
+        <View pointerEvents="none" style={styles.orbit} />
+        <View pointerEvents="none" style={styles.orbitInner} />
         <View style={styles.statusRow}>
-          <Text style={s.cardTitle}>Samsung Health</Text>
-          <Text style={styles.status}>
-            {connect.isPending ? '동기화 중' : connected ? '연결됨' : '연결 전'}
-          </Text>
-        </View>
-        <View style={styles.categories}>
-          {['활동', '수면', '생체 기록', '영양 · 물'].map(label => (
-            <Text key={label} style={styles.category}>
-              {label}
+          <Text style={styles.brand}>Samsung Health</Text>
+          <View style={styles.status}>
+            <View
+              style={[styles.statusDot, connected && styles.connectedDot]}
+            />
+            <Text accessibilityLiveRegion="polite" style={styles.statusText}>
+              {connect.isPending
+                ? '동기화 중'
+                : connected
+                ? '연결됨'
+                : connections.isPending
+                ? '확인 중'
+                : connections.isError
+                ? '확인 필요'
+                : '연결 전'}
             </Text>
+          </View>
+        </View>
+        <View style={styles.cardHero}>
+          <View style={styles.iconTile}>
+            <Image
+              source={require('../../assets/my/samsung-health-cutout.png')}
+              style={styles.icon}
+              resizeMode="contain"
+              accessibilityLabel="삼성헬스 아이콘"
+            />
+          </View>
+          <View style={styles.heroCopy}>
+            <Text style={styles.cardTitle}>건강 기록{'\n'}동기화</Text>
+            <Text style={styles.cardSubtitle}>
+              나의 건강 기록을 한눈에
+            </Text>
+          </View>
+        </View>
+        <View style={styles.divider} />
+        <Text style={styles.sectionLabel}>함께 연결되는 건강 기록</Text>
+        <View style={styles.categories}>
+          {[
+            {
+              label: '활동',
+              detail: '걸음 · 운동',
+              path: 'M4 17h4l3-11 3 14 3-9 3 6',
+            },
+            {
+              label: '수면',
+              detail: '매일의 수면 기록',
+              path: 'M20 14A8 8 0 0 1 10 4a8 8 0 1 0 10 10Z',
+            },
+            {
+              label: '생체 기록',
+              detail: '심박 · 혈압 · 혈당',
+              path: 'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z',
+            },
+            {
+              label: '영양 · 물',
+              detail: '식사 · 수분 섭취',
+              path: 'M12 3S5 11 5 15a7 7 0 0 0 14 0c0-4-7-12-7-12Z',
+            },
+          ].map(item => (
+            <View key={item.label} style={styles.category}>
+              <Svg
+                width={22}
+                height={22}
+                viewBox="0 0 24 24"
+                accessible={false}
+              >
+                <Path
+                  d={item.path}
+                  fill="none"
+                  stroke="#A8CEFF"
+                  strokeWidth={1.6}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+              <Text style={styles.categoryTitle}>{item.label}</Text>
+              <Text style={styles.categoryDetail}>{item.detail}</Text>
+            </View>
           ))}
         </View>
         {!!syncProgress && (
-          <Text accessibilityLiveRegion="polite" style={s.description}>
+          <Text accessibilityLiveRegion="polite" style={styles.cardSubtitle}>
             {syncProgress}
           </Text>
         )}
         {todaySteps && (
           <View style={styles.steps}>
-            <Text style={s.cardTitle}>
+            <Text style={styles.stepsTitle}>
               {todaySteps.hasData
                 ? `오늘 ${todaySteps.steps.toLocaleString()}걸음`
                 : '오늘 저장된 걸음 기록이 아직 없어요'}
             </Text>
-            <Text style={s.description}>
+            <Text style={styles.cardSubtitle}>
               {todaySteps.date} · 삼성헬스에서 읽은 기록
             </Text>
           </View>
         )}
         {readSteps.error && (
-          <Text style={s.error}>{readSteps.error.message}</Text>
+          <Text style={styles.error}>{readSteps.error.message}</Text>
         )}
         <ConnectionAction
           label={connected ? '건강 기록 다시 동기화' : '삼성헬스 연결하기'}
@@ -160,7 +233,7 @@ export function DataConnectionScreen({
           onPress={() => connect.mutate()}
         />
         {connect.error && (
-          <Text accessibilityRole="alert" style={s.error}>
+          <Text accessibilityRole="alert" style={styles.error}>
             {permissionGranted
               ? '읽기 권한은 허용됐지만 건강 기록 동기화를 완료하지 못했어요. '
               : ''}
@@ -172,12 +245,15 @@ export function DataConnectionScreen({
             accessibilityRole="button"
             onPress={() => connections.refetch()}
           >
-            <Text style={s.error}>
+            <Text style={styles.error}>
               연결 상태를 불러오지 못했어요. 다시 확인
             </Text>
           </Pressable>
         )}
-      </View>
+        <Text style={styles.footnote}>
+          연결 시 건강 기록의 읽기 권한을 요청해요.
+        </Text>
+      </LinearGradient>
     </ConnectionLayout>
   );
 }
@@ -196,65 +272,200 @@ function ConnectionAction({
       accessibilityRole="button"
       accessibilityLabel={label}
       disabled={loading}
+      accessibilityState={{ disabled: loading, busy: loading }}
       onPress={onPress}
-      style={styles.action}
+      style={({ pressed }) => [
+        styles.action,
+        pressed && styles.actionPressed,
+        loading && styles.actionLoading,
+      ]}
     >
       {loading ? (
-        <ActivityIndicator color={colors.primaryDark} />
+        <View style={styles.loadingRow}>
+          <ActivityIndicator color="#FFFFFF" />
+          <Text style={styles.actionText}>건강 기록 동기화 중</Text>
+        </View>
       ) : (
-        <Text style={styles.actionText}>{label} ›</Text>
+        <>
+          <Text style={styles.actionText}>{label}</Text>
+          <Text style={styles.actionArrow}>↗</Text>
+        </>
       )}
     </Pressable>
   );
 }
 const styles = StyleSheet.create({
-  intro: { gap: 12, alignItems: 'center', paddingVertical: 28 },
+  // 작성자: 김진우 — 삼성헬스 카드에 독립된 블루 팔레트와 높은 명도 대비를 적용한다.
+  intro: { gap: 10, alignItems: 'center', paddingTop: 22, paddingBottom: 12 },
+  eyebrow: {
+    color: '#5075AC',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  introDescription: {
+    color: '#65748C',
+    fontSize: 13,
+    lineHeight: 22,
+    textAlign: 'center',
+  },
   iconTile: {
-    width: 92,
-    height: 92,
-    borderRadius: 32,
-    backgroundColor: '#E5F2EC',
+    width: 80,
+    height: 80,
+    borderRadius: 25,
+    backgroundColor: '#FFFFFF0D',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#FFFFFF22',
   },
-  icon: { width: 52, height: 52 },
-  headline: { color: colors.text, fontSize: 27, fontWeight: '800' },
+  icon: { width: 72, height: 72 },
+  headline: {
+    color: '#152A4B',
+    fontSize: 27,
+    fontWeight: '800',
+    letterSpacing: -0.8,
+    textAlign: 'center',
+  },
+  brand: {
+    color: '#D3E3FF',
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+  cardHero: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginVertical: 8,
+  },
+  heroCopy: { flex: 1, gap: 8 },
+  cardTitle: {
+    color: '#FFFFFF',
+    fontSize: 27,
+    fontWeight: '800',
+    lineHeight: 34,
+    letterSpacing: -0.7,
+  },
+  cardSubtitle: { color: '#CDDEF9', fontSize: 12, lineHeight: 19 },
+  divider: { height: 1, backgroundColor: '#FFFFFF20' },
+  sectionLabel: {
+    color: '#BFCEF0',
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
   statusRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
   },
   status: {
-    color: colors.primaryDark,
-    fontSize: 12,
-    fontWeight: '700',
-    backgroundColor: '#E9F7EE',
-    padding: 8,
-    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFFFFF12',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#FFFFFF24',
   },
+  statusText: { color: '#E2ECFF', fontSize: 11, fontWeight: '600' },
+  statusDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: '#9DB8E8',
+  },
+  connectedDot: { backgroundColor: '#7DE7CC' },
   categories: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    paddingVertical: 10,
+    justifyContent: 'space-between',
+    rowGap: 10,
   },
   category: {
-    color: '#54746C',
-    fontSize: 12,
-    backgroundColor: '#F3F7F5',
-    padding: 9,
-    borderRadius: 10,
+    width: '48%',
+    gap: 7,
+    backgroundColor: '#FFFFFF09',
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#FFFFFF16',
   },
-  steps: { gap: 6, paddingVertical: 8 },
-  card: { padding: 22, gap: 16 },
+  categoryTitle: { color: '#F4F7FF', fontSize: 13, fontWeight: '700' },
+  categoryDetail: { color: '#BBCFED', fontSize: 10, lineHeight: 16 },
+  steps: {
+    gap: 6,
+    padding: 14,
+    backgroundColor: '#FFFFFF0C',
+    borderRadius: 16,
+  },
+  stepsTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
+  card: {
+    position: 'relative',
+    padding: 22,
+    gap: 16,
+    borderRadius: 28,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#41619C',
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
+  },
+  orbit: {
+    position: 'absolute',
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    borderWidth: 1,
+    borderColor: '#92BCFF12',
+    top: -100,
+    right: -100,
+  },
+  orbitInner: {
+    position: 'absolute',
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    borderWidth: 1,
+    borderColor: '#92BCFF12',
+    top: -70,
+    right: -70,
+  },
   action: {
-    minHeight: 48,
-    borderRadius: 14,
-    backgroundColor: '#EDF7F3',
+    minHeight: 54,
+    borderRadius: 16,
+    backgroundColor: '#367AF1',
+    borderWidth: 1,
+    borderColor: '#6FA4FF',
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  actionText: { color: colors.primaryDark, fontSize: 14, fontWeight: '700' },
+  actionText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+    flexShrink: 1,
+    textAlign: 'center',
+  },
+  actionArrow: { color: '#FFFFFF', fontSize: 22 },
+  actionPressed: { backgroundColor: '#2465D6', transform: [{ scale: 0.985 }] },
+  actionLoading: { opacity: 0.7 },
+  loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  footnote: {
+    color: '#BACCEC',
+    fontSize: 10,
+    lineHeight: 16,
+    textAlign: 'center',
+  },
+  error: { color: '#FFE0E2', fontSize: 13, lineHeight: 20 },
 });

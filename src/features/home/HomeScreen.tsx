@@ -151,6 +151,8 @@ export function HomeScreen({
                 navigation.navigate('CheckupDetail', { recordId })
               }
               onChat={() => setSelected('chatbot')}
+              onMissions={() => selectTab('missions')}
+              onHealth={() => selectTab('health')}
             />
           </View>
           {selected === 'home' ? null : selected === 'chatbot' ? (

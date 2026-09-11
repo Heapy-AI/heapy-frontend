@@ -1,8 +1,16 @@
-// 작성자: 김진우 — 홈 복약은 서버 일정과 연결하고 나머지 예시 모듈은 기존 구성을 유지한다.
+// 작성자: 김진우 — AI 브리핑을 제외한 홈 카드를 실제 서버 기록과 연결한다.
 import { HomeMedicationCard } from '../medication/HomeMedicationCard';
 import React, { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '../../shared/api/client';
+import { HomeData, formatValue } from './homeData';
+import { WeeklyCard } from './WeeklyCard';
+import { useMedicationToday } from '../medication/useMedicationToday';
+import { refreshSamsungConnection } from '../health/healthRefresh';
 import {
   Animated,
+  AppState,
+  RefreshControl,
   BackHandler,
   Modal,
   PanResponder,
@@ -39,6 +47,8 @@ type Props = {
   onMedication: () => void;
   onDetail: (id: string) => void;
   onChat: () => void;
+  onMissions?: () => void;
+  onHealth?: () => void;
 };
 const descriptions: Record<ModuleId, string> = {
   briefing: '오늘의 종합 분석 · 자동 구성',
@@ -80,7 +90,7 @@ const metricIcons = {
     'stroke-linejoin': 'round',
   },
 } as const;
-function MetricCards({ ids }: { ids: MetricId[] }) {
+function MetricCards({ ids, data }: { ids: MetricId[]; data?: HomeData }) {
   return (
     <View style={s.grid}>
       {ids.map((id, index) => (
@@ -117,8 +127,26 @@ function MetricCards({ ids }: { ids: MetricId[] }) {
               </View>
             )}
           </View>
-          <Text style={s.value}>{metrics[id][1]}</Text>
-          <Text style={s.purple}>{metrics[id][2]}</Text>
+          <Text style={s.value}>
+            {formatValue(
+              id,
+              data?.cards?.metrics[id]?.value,
+              data?.cards?.metrics[id]?.secondary,
+            )}
+          </Text>
+          <Text style={s.purple}>
+            {data?.cards?.metrics[id]?.date
+              ? `${data.cards.metrics[id]!.date} · ${
+                  id === 'count'
+                    ? '최근 7일'
+                    : id === 'heart'
+                    ? '일평균'
+                    : id === 'pressure'
+                    ? '최근 측정'
+                    : '일 합계'
+                }`
+              : '동기화하거나 기록을 추가해 주세요'}
+          </Text>
         </View>
       ))}
     </View>
@@ -228,6 +256,49 @@ function DragRow({
 }
 export function HomeDashboard(_props: Props) {
   const briefingPress = usePressFeedback();
+  const today = useMedicationToday();
+  const client = useQueryClient();
+  const home = useQuery({
+    queryKey: ['home', today],
+    queryFn: async ({ signal }) =>
+      (await apiClient.get<HomeData>('/api/home', { signal })).data,
+    enabled: _props.active !== false,
+    retry: false,
+    refetchInterval: _props.active === false ? false : 60000,
+  });
+  const [refreshing, setRefreshing] = useState(false);
+  const [syncError, setSyncError] = useState('');
+  React.useEffect(() => {
+    if (_props.active === false) return;
+    const sub = AppState.addEventListener('change', state => {
+      if (state === 'active') {
+        void client.invalidateQueries({ queryKey: ['home'] });
+        void client.invalidateQueries({ queryKey: ['medication-intakes'] });
+      }
+    });
+    return () => sub.remove();
+  }, [_props.active, client]);
+  const refresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    setSyncError('');
+    try {
+      if (Platform.OS === 'android') await refreshSamsungConnection();
+    } catch (error) {
+      setSyncError(
+        error instanceof Error
+          ? error.message
+          : '건강 기록 동기화를 완료하지 못했어요.',
+      );
+    } finally {
+      await Promise.all([
+        client.invalidateQueries({ queryKey: ['home'] }),
+        client.invalidateQueries({ queryKey: ['medication-intakes'] }),
+        client.invalidateQueries({ queryKey: ['health'] }),
+      ]);
+      setRefreshing(false);
+    }
+  };
   const { onEditingChange } = _props;
   const [saved, setSaved] = useState(defaultHomeSettings);
   const [draft, setDraft] = useState(defaultHomeSettings);
@@ -235,9 +306,7 @@ export function HomeDashboard(_props: Props) {
     'home' | 'edit' | 'preview' | 'metrics' | 'medication' | 'weekly'
   >('home');
   const [detail, setDetail] = useState<string>();
-  const [missionAdded, setMissionAdded] = useState(false);
-  const [taken, setTaken] = useState(false);
-  const [signal, setSignal] = useState(true);
+
   const [settingDraft, setSettingDraft] = useState(defaultHomeSettings);
   const pageScroll = React.useRef<ScrollView>(null);
   // 작성자: 김진우 — 탭 복귀 시 탐색 상태만 비우고 저장한 홈 구성은 유지한다.
@@ -267,6 +336,29 @@ export function HomeDashboard(_props: Props) {
   const change = (patch: Partial<HomeSettings>) =>
     setSettingDraft(value => ({ ...value, ...patch }));
   const renderModule = (id: ModuleId, config: HomeSettings) => {
+    if (
+      id !== 'briefing' &&
+      id !== 'medication' &&
+      (!home.data || !home.data.cards || home.isError)
+    ) {
+      return (
+        <Pressable
+          key={id}
+          style={s.card}
+          accessibilityRole="button"
+          onPress={() => home.refetch()}
+        >
+          <Text style={s.heading}>{moduleLabels[id]}</Text>
+          <Text style={s.small}>
+            {home.isError
+              ? '불러오지 못했어요. 눌러서 다시 시도'
+              : home.isPending
+              ? '불러오는 중…'
+              : '홈 데이터 API 업데이트가 필요해요.'}
+          </Text>
+        </Pressable>
+      );
+    }
     if (id === 'briefing')
       return (
         <Pressable
@@ -313,10 +405,10 @@ export function HomeDashboard(_props: Props) {
             <Text style={s.heading}>오늘의 핵심 데이터</Text>
             <Text style={s.link}>{config.metrics.length}개 선택</Text>
           </View>
-          <MetricCards ids={config.metrics} />
+          <MetricCards ids={config.metrics} data={home.data} />
         </View>
       );
-    if (id === 'medication' && screen === 'home')
+    if (id === 'medication')
       return (
         <HomeMedicationCard
           key={id}
@@ -325,107 +417,82 @@ export function HomeDashboard(_props: Props) {
           onOpen={_props.onMedication}
         />
       );
-    if (id === 'medication')
-      return (
-        <View key={id} style={s.card}>
-          <View style={s.row}>
-            <Text style={s.heading}>오늘의 복약</Text>
-            {config.medicationProgress && (
-              <Text style={s.purple}>{taken ? '2' : '1'} / 3 완료</Text>
-            )}
-          </View>
-          {(config.medicationMode === 'all'
-            ? ['아침 · 오전 8:00', '다음 복약 · 오후 1:00', '저녁 · 오후 7:00']
-            : ['다음 복약 · 오후 1:00']
-          ).map(time => (
-            <View key={time} style={s.medication}>
-              <View style={{ flex: 1, gap: 5 }}>
-                <Text style={s.purple}>{time}</Text>
-                {config.medicationName && (
-                  <Text style={s.rowTitle}>메트포르민 500mg · 1정</Text>
-                )}
-                <Text style={s.small}>식후 복용 · 예시</Text>
-              </View>
-              {config.medicationButton && (
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => setTaken(!taken)}
-                  style={s.miniButton}
-                >
-                  <Text style={s.whiteSmall}>
-                    {taken ? '완료 취소' : '복용 완료'}
-                  </Text>
-                </Pressable>
-              )}
-            </View>
-          ))}
-        </View>
-      );
     if (id === 'mission')
       return (
         <LinearGradient
           key={id}
           colors={['#E8FCF5', '#DEF2FF']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
           style={[s.card, { borderColor: '#AFE5D7' }]}
         >
           <View style={s.row}>
-            <Text style={s.link}>HEAPY 추천 미션</Text>
-            <Text style={s.purple}>활동 분석</Text>
+            <Text style={s.heading}>오늘의 미션</Text>
+            <Text style={s.purple}>
+              {home.data?.missions?.filter(m => m.status === 'completed')
+                .length ?? 0}{' '}
+              / {home.data?.missions?.length ?? 0} 완료
+            </Text>
           </View>
-          <Text style={s.heading}>저녁에 20분 걷기</Text>
-          <Text style={s.small}>
-            최근 7일 운동시간이 평소보다 18% 줄었어요.
-          </Text>
+          {home.data?.missions?.length ? (
+            home.data.missions.map(mission => (
+              <View key={mission.userMissionId} style={{ gap: 5 }}>
+                <Text style={s.rowTitle}>{mission.title}</Text>
+                {!!mission.description && (
+                  <Text style={s.small}>{mission.description}</Text>
+                )}
+                <Text style={s.purple}>
+                  {{
+                    suggested: '추천',
+                    accepted: '수락함',
+                    in_progress: '진행 중',
+                    completed: '완료',
+                    failed: '기간 종료',
+                  }[mission.status] ?? mission.status}
+                </Text>
+              </View>
+            ))
+          ) : (
+            <Text style={s.small}>오늘 등록된 미션이 없어요.</Text>
+          )}
           <Pressable
             accessibilityRole="button"
+            onPress={_props.onMissions}
             style={s.miniButton}
-            onPress={() => setMissionAdded(!missionAdded)}
           >
-            <Text style={s.whiteSmall}>
-              {missionAdded ? '예시 미션 추가됨 · 취소' : '미션 추가하기'}
-            </Text>
+            <Text style={s.whiteSmall}>미션 보기</Text>
           </Pressable>
         </LinearGradient>
       );
     if (id === 'weekly')
       return (
-        <View key={id} style={s.card}>
-          <Text style={s.heading}>주간 활동 변화</Text>
-          <Text style={s.value}>
-            {config.weekly === 'steps'
-              ? '평균 6,420보'
-              : config.weekly === 'sleep'
-              ? '평균 7시간 12분'
-              : '평균 42분'}
-          </Text>
-          <View style={s.bars}>
-            {[34, 46, 40, 55, 30, 44, 20].map((height, i) => (
-              <View
-                key={i}
-                style={{
-                  height,
-                  flex: 1,
-                  backgroundColor: i === 6 ? '#388CF5' : '#A0DDCC',
-                  borderRadius: 8,
-                }}
-              />
-            ))}
-          </View>
-          <Text style={s.small}>최근 7일 ↔ 이전 7일 · 예시 데이터</Text>
-        </View>
+        <WeeklyCard
+          key={id}
+          data={home.data ?? { date: today, alerts: [] }}
+          metric={config.weekly}
+        />
       );
+    const checkup = home.data?.latestCheckup;
     return (
       <Pressable
         accessibilityRole="button"
         key={id}
         style={s.card}
-        onPress={() => setDetail('검진')}
+        onPress={() =>
+          checkup ? _props.onDetail(checkup.recordId) : _props.onCheckup()
+        }
       >
         <Text style={s.heading}>최근 건강검진</Text>
-        <Text style={s.value}>2025.08.09</Text>
-        <Text style={s.small}>검진 결과와 주의 항목 확인하기 →</Text>
+        <Text style={s.value}>
+          {checkup?.measuredAt ?? '등록한 검진이 없어요'}
+        </Text>
+        {checkup && (
+          <Text style={s.small}>
+            {checkup.providerName || '검진 기관 미기록'} · 검사{' '}
+            {checkup.resultCount}개 · 소견 {checkup.findingCount}개
+          </Text>
+        )}
+        <Text style={s.link}>
+          {checkup ? '검진 결과 확인하기 →' : '검진 결과 등록하기 →'}
+        </Text>
       </Pressable>
     );
   };
@@ -464,7 +531,15 @@ export function HomeDashboard(_props: Props) {
           </Pressable>
         </View>
       )}
-      <ScrollView ref={pageScroll} contentContainerStyle={s.page}>
+      <ScrollView
+        ref={pageScroll}
+        contentContainerStyle={s.page}
+        refreshControl={
+          screen === 'home' ? (
+            <RefreshControl refreshing={refreshing} onRefresh={refresh} />
+          ) : undefined
+        }
+      >
         {(screen === 'home' || screen === 'preview') && (
           <>
             <View style={s.row}>
@@ -486,38 +561,48 @@ export function HomeDashboard(_props: Props) {
                 </Pressable>
               )}
             </View>
-            <Text style={s.title}>왕밤빵님, 오늘도{'\n'}함께 관리해요</Text>
-            <Text style={s.caption}>
-              예시 화면 · 실제 건강 데이터가 아닙니다
+            <Text style={s.title}>
+              {home.data?.name ? `${home.data.name}님, ` : ''}오늘도{'\n'}함께
+              관리해요
             </Text>
-            {(screen === 'home' ? saved : draft).modules.map(id => (
-              <React.Fragment key={id}>
-                {id === 'mission' && signal && screen === 'home' && (
-                  <View style={[s.card, s.row]}>
-                    <View style={{ flex: 1, gap: 6 }}>
-                      <Text style={s.rowTitle}>확인할 건강 신호 1개</Text>
-                      <Text style={s.caption}>
-                        혈압 기록이 3일 비었어요 · 예시
-                      </Text>
-                    </View>
-                    <Pressable
-                      accessibilityRole="button"
-                      onPress={() => setSignal(false)}
-                      style={s.editButton}
-                    >
-                      <Text style={s.link}>확인</Text>
-                    </Pressable>
-                  </View>
-                )}
-                {id === 'mission' && screen === 'home' && (
-                  <View style={s.row}>
-                    <Text style={s.heading}>오늘의 행동</Text>
-                    <Text style={s.link}>미션 1 / 3</Text>
-                  </View>
-                )}
-                {renderModule(id, screen === 'home' ? saved : draft)}
-              </React.Fragment>
+            {home.isPending && (
+              <Text style={s.small}>건강 기록을 불러오고 있어요.</Text>
+            )}
+            {home.isError && (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => home.refetch()}
+              >
+                <Text style={s.small}>
+                  홈 정보를 불러오지 못했어요. 다시 시도
+                </Text>
+              </Pressable>
+            )}
+            {!!syncError && (
+              <Pressable accessibilityRole="button" onPress={_props.onConnect}>
+                <Text style={s.small}>{syncError}</Text>
+              </Pressable>
+            )}
+            {home.data?.cards?.dataTruncated && (
+              <Text style={s.small}>
+                일부 기록이 많아 해당 지표의 집계를 표시하지 못했어요.
+              </Text>
+            )}
+            {home.data?.alerts.map(alert => (
+              <Pressable
+                key={alert.alertId}
+                style={s.card}
+                accessibilityRole="button"
+                onPress={_props.onHealth}
+              >
+                <Text style={s.rowTitle}>{alert.title}</Text>
+                <Text style={s.small}>{alert.message}</Text>
+                <Text style={s.link}>내 건강에서 확인하기 →</Text>
+              </Pressable>
             ))}
+            {(screen === 'home' ? saved : draft).modules.map(id =>
+              renderModule(id, screen === 'home' ? saved : draft),
+            )}
 
             {!(screen === 'home' ? saved : draft).modules.length && (
               <Text style={s.small}>
@@ -597,7 +682,7 @@ export function HomeDashboard(_props: Props) {
               표시할 항목 · {settingDraft.metrics.length} / 2 선택
             </Text>
             <Text style={s.caption}>
-              현재는 모든 항목을 예시 값으로 미리 볼 수 있어요.
+              저장된 실제 기록으로 미리 볼 수 있어요.
             </Text>
             <View style={s.grid}>
               {(Object.keys(metrics) as MetricId[]).map(id => (
@@ -622,7 +707,13 @@ export function HomeDashboard(_props: Props) {
                     {metrics[id][0]}{' '}
                     {settingDraft.metrics.includes(id) ? '✓' : ''}
                   </Text>
-                  <Text style={s.caption}>{metrics[id][1]}</Text>
+                  <Text style={s.caption}>
+                    {formatValue(
+                      id,
+                      home.data?.cards?.metrics[id]?.value,
+                      home.data?.cards?.metrics[id]?.secondary,
+                    )}
+                  </Text>
                 </Pressable>
               ))}
             </View>
@@ -695,7 +786,7 @@ export function HomeDashboard(_props: Props) {
             ))}
             <View style={s.info}>
               <Text style={s.caption}>
-                예시 복약입니다. 실제 복약 일정과 완료 기록은 변경되지 않아요.
+                실제 복약 일정의 표시 항목을 설정해요.
               </Text>
             </View>
           </>

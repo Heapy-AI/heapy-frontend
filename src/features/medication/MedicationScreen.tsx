@@ -17,6 +17,10 @@ import { ConnectionLayout } from '../dataConnection/ConnectionLayout';
 import { medicationApi, Intake } from './medicationApi';
 import { koreaDate, koreaTime, shiftDate } from './medicationForm';
 import { colors } from '../../shared/theme/tokens';
+import {
+  MedicationIntakeCard,
+  RegisteredMedicationCard,
+} from './MedicationCards';
 
 export function MedicationScreen({
   navigation,
@@ -148,42 +152,15 @@ export function MedicationScreen({
             </View>
           ) : (
             medications.data?.map(med => (
-              <Pressable
+              <RegisteredMedicationCard
                 key={med.medicationId}
-                accessibilityRole="button"
-                accessibilityLabel={`${med.displayName} 상세`}
-                onPress={() =>
+                medication={med}
+                onOpen={() =>
                   navigation.navigate('MedicationRegistration', {
                     medicationId: med.medicationId,
                   })
                 }
-                style={s.card}
-              >
-                <View style={s.row}>
-                  <Text style={s.section}>{med.displayName}</Text>
-                  <Text style={s.badge}>
-                    {med.status === 'active'
-                      ? '복용 중'
-                      : med.status === 'completed'
-                      ? '기간 종료'
-                      : '복용 종료'}
-                  </Text>
-                </View>
-                <Text style={s.body}>{med.dosageText}</Text>
-                {!!med.instructions && (
-                  <Text style={s.muted}>{med.instructions}</Text>
-                )}
-                <View style={s.chips}>
-                  {med.schedules.map(time => (
-                    <Text key={time.scheduleId} style={s.time}>
-                      {time.scheduledTime.slice(0, 5)}
-                    </Text>
-                  ))}
-                </View>
-                <Text style={s.muted}>
-                  {med.startDate} ~ {med.endDate ?? '종료일 없음'}
-                </Text>
-              </Pressable>
+              />
             ))
           )}
         </>
@@ -229,59 +206,30 @@ export function MedicationScreen({
             </View>
           ) : (
             intakes.data?.map(item => (
-              <View key={item.intakeId} style={s.card}>
-                <View style={s.row}>
-                  <Text style={s.clock}>{koreaTime(item.scheduledAt)}</Text>
-                  <Text style={s.badge}>
-                    {
-                      {
-                        pending: '복용 예정',
-                        taken: '복용 완료',
-                        skipped: '건너뜀',
-                        missed: '미복용',
-                      }[item.status]
-                    }
-                  </Text>
-                </View>
-                <Text style={s.section}>{item.displayName}</Text>
-                <Text style={s.muted}>{item.dosageText}</Text>
-                {['pending', 'missed'].includes(item.status) &&
-                  date <= koreaDate() && (
-                    <View style={s.row}>
-                      <Pressable
-                        accessibilityRole="button"
-                        onPress={() => {
-                          action.reset();
-                          setPendingAction({
-                            item,
-                            action: 'skip',
-                            key: createIdempotencyKey(),
-                          });
-                        }}
-                        style={s.smallButton}
-                      >
-                        <Text style={s.muted}>건너뛰기</Text>
-                      </Pressable>
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={`${item.displayName} ${koreaTime(
-                          item.scheduledAt,
-                        )} 복용 완료`}
-                        onPress={() => {
-                          action.reset();
-                          setPendingAction({
-                            item,
-                            action: 'complete',
-                            key: createIdempotencyKey(),
-                          });
-                        }}
-                        style={s.done}
-                      >
-                        <Text style={s.link}>복용 완료</Text>
-                      </Pressable>
-                    </View>
-                  )}
-              </View>
+              <MedicationIntakeCard
+                key={item.intakeId}
+                item={item}
+                actionable={
+                  ['pending', 'missed'].includes(item.status) &&
+                  date <= koreaDate()
+                }
+                onSkip={() => {
+                  action.reset();
+                  setPendingAction({
+                    item,
+                    action: 'skip',
+                    key: createIdempotencyKey(),
+                  });
+                }}
+                onComplete={() => {
+                  action.reset();
+                  setPendingAction({
+                    item,
+                    action: 'complete',
+                    key: createIdempotencyKey(),
+                  });
+                }}
+              />
             ))
           )}
         </>

@@ -22,8 +22,7 @@ import { createIdempotencyKey } from '../../shared/utils/idempotency';
 import { onboardingDraft } from '../onboarding/onboardingDraft';
 import { ConfirmModal } from '../../shared/components/ConfirmModal';
 import { useResponsiveLayout } from '../../shared/hooks/useResponsiveLayout';
-import { medicationApi } from '../medication/medicationApi';
-import { useMedicationToday } from '../medication/useMedicationToday';
+import { TodayMedicationCard } from '../medication/MedicationCards';
 import { AmbientEffect } from '../../shared/components/AmbientEffect';
 
 type Props = {
@@ -207,20 +206,12 @@ export function MyScreen({ navigation, active = true }: Props) {
             </LinearGradient>
           )
         )}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="오늘의 복약 일정"
-          onPress={() =>
+        <TodayMedicationCard
+          active={active}
+          onOpen={() =>
             navigation.navigate('MedicationManagement', { tab: 'schedule' })
           }
-          style={s.schedule}
-        >
-          <View style={s.sectionTop}>
-            <Text style={s.sectionTitle}>오늘의 복약 일정</Text>
-            <Text style={s.comingSoon}>일정 보기 ›</Text>
-          </View>
-          <TodayMedicationSummary active={active} />
-        </Pressable>
+        />
         <Text accessibilityRole="header" style={s.sectionHeading}>
           관리
         </Text>
@@ -415,25 +406,6 @@ const s = StyleSheet.create({
     paddingVertical: 5,
   },
   badgeText: { color: colors.surface, fontSize: 10, fontWeight: '700' },
-  schedule: {
-    backgroundColor: colors.surface,
-    borderRadius: 24,
-    padding: 18,
-    marginTop: 18,
-  },
-  sectionTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
-  scheduleDescription: {
-    color: colors.textMuted,
-    fontSize: 12,
-    lineHeight: 20,
-    marginTop: 14,
-  },
   sectionHeading: {
     fontSize: 18,
     fontWeight: '700',
@@ -514,27 +486,3 @@ const s = StyleSheet.create({
   error: { color: colors.danger, fontSize: 12, lineHeight: 20, marginTop: 12 },
   pressed: { opacity: 0.7 },
 });
-
-function TodayMedicationSummary({ active }: { active?: boolean }) {
-  const date = useMedicationToday();
-  const query = useQuery({
-    queryKey: ['medication-intakes', date],
-    queryFn: ({ signal }) => medicationApi.intakes(date, signal),
-    enabled: active !== false,
-    retry: false,
-    refetchInterval: 60000,
-  });
-  return (
-    <Text style={s.scheduleDescription}>
-      {query.isPending
-        ? '일정을 불러오는 중이에요'
-        : query.isError
-        ? '일정을 불러오지 못했어요. 눌러서 다시 확인해 주세요.'
-        : query.data?.length
-        ? `오늘 ${query.data.length}회 중 ${
-            query.data.filter(item => item.status === 'taken').length
-          }회 복용 완료`
-        : '오늘 예정된 복약이 없어요'}
-    </Text>
-  );
-}
