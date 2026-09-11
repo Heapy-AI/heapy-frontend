@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -30,7 +31,6 @@ export function DataConnectionScreen({
   const [todaySteps, setTodaySteps] = useState<SamsungSteps>();
   const [syncProgress, setSyncProgress] = useState('');
   const [permissionGranted, setPermissionGranted] = useState(false);
-  const [grantedTypes, setGrantedTypes] = useState<string[]>([]);
   const readSteps = useMutation({
     mutationFn: readSamsungTodaySteps,
     onSuccess: setTodaySteps,
@@ -41,15 +41,9 @@ export function DataConnectionScreen({
     queryFn: dataConnectionApi.getConnections,
     retry: false,
   });
-  const checkup = useQuery({
-    queryKey: ['checkup-registered'],
-    queryFn: async () => false,
-    staleTime: Infinity,
-  });
   const connect = useMutation({
     mutationFn: async () => {
       setPermissionGranted(false);
-      setGrantedTypes([]);
       setTodaySteps(undefined);
       readSteps.reset();
       const permissions = await requestSamsungPermissions();
@@ -57,7 +51,6 @@ export function DataConnectionScreen({
         permissions.grantedDataTypes,
       );
       setPermissionGranted(complete);
-      setGrantedTypes(permissions.grantedDataTypes);
       const connection = await syncSamsungHealth({
         permission: permissions,
         onProgress: setSyncProgress,
@@ -98,12 +91,12 @@ export function DataConnectionScreen({
       : navigation.reset(createSessionNavigationState('Home'));
   return (
     <ConnectionLayout
-      title="건강 데이터 연결"
+      title="삼성헬스 연동"
       onBack={fromMy ? home : undefined}
       footer={
         !fromMy && (
           <>
-            {(connected || checkup.data) && (
+            {connected && (
               <PrimaryButton label="홈으로 시작하기" onPress={home} />
             )}
             <Pressable
@@ -118,32 +111,29 @@ export function DataConnectionScreen({
       }
     >
       <View style={styles.intro}>
-        <Text style={s.eyebrow}>나를 더 잘 이해하는 첫걸음</Text>
-        <Text style={s.headline}>건강 데이터를{'\n'}연결해 주세요</Text>
-        <Text style={s.description}>
-          생활 기록과 검진 결과를 한곳에서 확인하세요.{'\n'}지금 연결하지 않아도
-          괜찮아요.
-        </Text>
+        <View style={styles.iconTile}>
+          <Image
+            source={require('../../assets/my/samsung.png')}
+            style={styles.icon}
+          />
+        </View>
+        <Text style={styles.headline}>매일의 건강, 한곳에</Text>
+        <Text style={s.description}>삼성헬스의 기록을 HEAPY와 연결해요.</Text>
       </View>
       <View style={[s.card, styles.card]}>
-        <Text style={s.badge}>생활 건강 · 선택</Text>
-        <Text style={s.cardTitle}>Samsung Health</Text>
-        <Text style={s.description}>
-          수면, 심박수, 혈당, 혈압, 체성분, 운동, 오른 층수, 걸음 수, 활동 요약,
-          물 섭취, 영양까지 11개 항목을 모두 허용하면 연결돼요. 기록이 없는
-          항목도 읽기 권한만 허용하면 괜찮아요.
-        </Text>
-        {(connected || permissionGranted) && (
-          <Text style={s.badge}>
-            {permissionGranted
-              ? `휴대폰 읽기 권한 ${grantedTypes.length}/11개 허용됨`
-              : '저장된 연결 기록 있음'}
+        <View style={styles.statusRow}>
+          <Text style={s.cardTitle}>Samsung Health</Text>
+          <Text style={styles.status}>
+            {connect.isPending ? '동기화 중' : connected ? '연결됨' : '연결 전'}
           </Text>
-        )}
-        <Text style={s.description}>
-          처음 연결하면 최근 1년의 건강 기록을 가져와요. 이후에는 내 건강에서
-          아래로 당겨 최신 기록을 동기화할 수 있어요.
-        </Text>
+        </View>
+        <View style={styles.categories}>
+          {['활동', '수면', '생체 기록', '영양 · 물'].map(label => (
+            <Text key={label} style={styles.category}>
+              {label}
+            </Text>
+          ))}
+        </View>
         {!!syncProgress && (
           <Text accessibilityLiveRegion="polite" style={s.description}>
             {syncProgress}
@@ -160,13 +150,6 @@ export function DataConnectionScreen({
               {todaySteps.date} · 삼성헬스에서 읽은 기록
             </Text>
           </View>
-        )}
-        {permissionGranted && connected && (
-          <ConnectionAction
-            label="오늘 걸음 수 다시 읽기"
-            loading={readSteps.isPending}
-            onPress={() => readSteps.mutate()}
-          />
         )}
         {readSteps.error && (
           <Text style={s.error}>{readSteps.error.message}</Text>
@@ -195,22 +178,6 @@ export function DataConnectionScreen({
           </Pressable>
         )}
       </View>
-      <View style={[s.card, styles.card]}>
-        <Text style={s.badge}>건강검진 · 선택</Text>
-        <Text style={s.cardTitle}>건강검진 결과 등록</Text>
-        <Text style={s.description}>
-          PDF를 선택하거나 결과지를 촬영해 주세요. 인식한 결과를 확인하고 수정한
-          뒤 저장해요.
-        </Text>
-        {checkup.data && <Text style={s.badge}>검진 결과 저장 완료</Text>}
-        <ConnectionAction
-          label={checkup.data ? '검진 결과 추가 등록' : '검진 결과 등록하기'}
-          onPress={() => navigation.navigate('CheckupRegistration')}
-        />
-      </View>
-      <Text style={s.description}>
-        연결과 등록은 나중에도 홈에서 할 수 있어요.
-      </Text>
     </ConnectionLayout>
   );
 }
@@ -241,9 +208,47 @@ function ConnectionAction({
   );
 }
 const styles = StyleSheet.create({
-  intro: { gap: 10 },
+  intro: { gap: 12, alignItems: 'center', paddingVertical: 28 },
+  iconTile: {
+    width: 92,
+    height: 92,
+    borderRadius: 32,
+    backgroundColor: '#E5F2EC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  icon: { width: 52, height: 52 },
+  headline: { color: colors.text, fontSize: 27, fontWeight: '800' },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  status: {
+    color: colors.primaryDark,
+    fontSize: 12,
+    fontWeight: '700',
+    backgroundColor: '#E9F7EE',
+    padding: 8,
+    borderRadius: 12,
+  },
+  categories: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingVertical: 10,
+  },
+  category: {
+    color: '#54746C',
+    fontSize: 12,
+    backgroundColor: '#F3F7F5',
+    padding: 9,
+    borderRadius: 10,
+  },
   steps: { gap: 6, paddingVertical: 8 },
-  card: { padding: 18, gap: 10 },
+  card: { padding: 22, gap: 16 },
   action: {
     minHeight: 48,
     borderRadius: 14,

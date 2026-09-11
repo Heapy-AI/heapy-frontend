@@ -22,6 +22,8 @@ import { createIdempotencyKey } from '../../shared/utils/idempotency';
 import { onboardingDraft } from '../onboarding/onboardingDraft';
 import { ConfirmModal } from '../../shared/components/ConfirmModal';
 import { useResponsiveLayout } from '../../shared/hooks/useResponsiveLayout';
+import { medicationApi } from '../medication/medicationApi';
+import { useMedicationToday } from '../medication/useMedicationToday';
 import { AmbientEffect } from '../../shared/components/AmbientEffect';
 
 type Props = {
@@ -208,26 +210,26 @@ export function MyScreen({ navigation, active = true }: Props) {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="오늘의 복약 일정"
-          onPress={() => preparing('오늘의 복약 일정')}
+          onPress={() =>
+            navigation.navigate('MedicationManagement', { tab: 'schedule' })
+          }
           style={s.schedule}
         >
           <View style={s.sectionTop}>
             <Text style={s.sectionTitle}>오늘의 복약 일정</Text>
-            <Text style={s.comingSoon}>준비 중</Text>
+            <Text style={s.comingSoon}>일정 보기 ›</Text>
           </View>
-          <Text style={s.scheduleDescription}>
-            복약 일정 기능을 준비하고 있어요.
-          </Text>
+          <TodayMedicationSummary active={active} />
         </Pressable>
         <Text accessibilityRole="header" style={s.sectionHeading}>
           관리
         </Text>
         <MenuRow
           title="복약 정보 관리"
-          description="복용 약과 알림 시간을 관리해요"
+          description="복용 약과 일정을 관리해요"
           icon={icons.medication}
           tone="#ECF9F3"
-          onPress={() => preparing('복약 정보 관리')}
+          onPress={() => navigation.navigate('MedicationManagement')}
         />
         <MenuRow
           title="건강검진 등록 및 관리"
@@ -512,3 +514,27 @@ const s = StyleSheet.create({
   error: { color: colors.danger, fontSize: 12, lineHeight: 20, marginTop: 12 },
   pressed: { opacity: 0.7 },
 });
+
+function TodayMedicationSummary({ active }: { active?: boolean }) {
+  const date = useMedicationToday();
+  const query = useQuery({
+    queryKey: ['medication-intakes', date],
+    queryFn: ({ signal }) => medicationApi.intakes(date, signal),
+    enabled: active !== false,
+    retry: false,
+    refetchInterval: 60000,
+  });
+  return (
+    <Text style={s.scheduleDescription}>
+      {query.isPending
+        ? '일정을 불러오는 중이에요'
+        : query.isError
+        ? '일정을 불러오지 못했어요. 눌러서 다시 확인해 주세요.'
+        : query.data?.length
+        ? `오늘 ${query.data.length}회 중 ${
+            query.data.filter(item => item.status === 'taken').length
+          }회 복용 완료`
+        : '오늘 예정된 복약이 없어요'}
+    </Text>
+  );
+}

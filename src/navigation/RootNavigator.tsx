@@ -31,6 +31,8 @@ import { CheckupRegistrationScreen } from '../features/dataConnection/CheckupReg
 import { CheckupDetailScreen } from '../features/dataConnection/CheckupDetailScreen';
 import { CheckupHistoryScreen } from '../features/dataConnection/CheckupHistoryScreen';
 import { useReducedMotion } from '../shared/hooks/useReducedMotion';
+import { MedicationScreen } from '../features/medication/MedicationScreen';
+import { MedicationRegistrationScreen } from '../features/medication/MedicationRegistrationScreen';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 export function RootNavigator() {
   const reducedMotion = useReducedMotion();
@@ -138,6 +140,14 @@ export function RootNavigator() {
           <Stack.Screen
             name="HealthBackground"
             component={HealthBackgroundScreen}
+          />
+          <Stack.Screen
+            name="MedicationManagement"
+            component={MedicationScreen}
+          />
+          <Stack.Screen
+            name="MedicationRegistration"
+            component={MedicationRegistrationScreen}
           />
           <Stack.Screen name="Home" component={HomeScreen} />
           <Stack.Screen name="CheckupDetail" component={CheckupDetailScreen} />

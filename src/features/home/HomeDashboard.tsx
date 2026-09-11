@@ -1,4 +1,5 @@
-// 작성자: 김진우 — 홈의 모든 수치와 행동은 예시이며 실제 건강기록을 조회·변경하지 않는다.
+// 작성자: 김진우 — 홈 복약은 서버 일정과 연결하고 나머지 예시 모듈은 기존 구성을 유지한다.
+import { HomeMedicationCard } from '../medication/HomeMedicationCard';
 import React, { useState } from 'react';
 import {
   Animated,
@@ -35,6 +36,7 @@ type Props = {
   onEditingChange?: (editing: boolean) => void;
   onConnect: () => void;
   onCheckup: () => void;
+  onMedication: () => void;
   onDetail: (id: string) => void;
   onChat: () => void;
 };
@@ -313,6 +315,15 @@ export function HomeDashboard(_props: Props) {
           </View>
           <MetricCards ids={config.metrics} />
         </View>
+      );
+    if (id === 'medication' && screen === 'home')
+      return (
+        <HomeMedicationCard
+          key={id}
+          active={_props.active !== false}
+          config={config}
+          onOpen={_props.onMedication}
+        />
       );
     if (id === 'medication')
       return (
