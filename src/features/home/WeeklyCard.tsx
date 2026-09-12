@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import LinearGradient from 'react-native-linear-gradient';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { HomeData, formatValue, weeklyData } from './homeData';
 import { HomeSettings, metrics } from './homeModel';
+import { HomeCardHeading, metricDesign } from './HomeCardDesign';
 
 // 작성자: 김진우 — 실제 날짜별 막대를 누르면 해당 기록값을 표시한다.
 export function WeeklyCard({
@@ -16,8 +18,19 @@ export function WeeklyCard({
   const maximum = Math.max(1, ...weekly.days.map(p => p.value ?? 0));
   const point = weekly.days.find(p => p.date === selected);
   return (
-    <View style={s.card}>
-      <Text style={s.title}>주간 {metrics[metric][0]} 변화</Text>
+    <LinearGradient
+      colors={['#FFFFFF', '#F1FAFF']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={s.card}
+    >
+      <HomeCardHeading
+        icon={metric}
+        title={`주간 ${metrics[metric][0]} 변화`}
+        detail="최근 7일의 기록"
+        color={metricDesign[metric].color}
+        tint={metricDesign[metric].tint}
+      />
       <Text style={s.value}>
         {weekly.average === null
           ? '최근 7일 기록이 없어요'
@@ -48,7 +61,10 @@ export function WeeklyCard({
                     p.value === null
                       ? 0
                       : Math.max(3, (p.value / maximum) * 70),
-                  backgroundColor: selected === p.date ? '#388CF5' : '#82D5BA',
+                  backgroundColor:
+                    selected === p.date
+                      ? metricDesign[metric].color
+                      : `${metricDesign[metric].color}70`,
                 }}
               />
             </View>
@@ -66,29 +82,35 @@ export function WeeklyCard({
         어제까지 · 기록일 평균 ({weekly.recordedDays}일 / 이전{' '}
         {weekly.previousDays}일)
       </Text>
-    </View>
+    </LinearGradient>
   );
 }
 const s = StyleSheet.create({
   card: {
     backgroundColor: 'white',
-    borderRadius: 22,
-    padding: 16,
-    gap: 12,
+    borderRadius: 25,
+    padding: 20,
+    gap: 17,
     borderWidth: 1,
-    borderColor: '#DBEBE5',
+    borderColor: '#DDEEF8',
+    boxShadow: '0px 7px 18px rgba(54, 141, 183, 0.10)',
   },
   title: { color: '#17342D', fontSize: 16, fontWeight: '800' },
-  value: { color: '#173A31', fontSize: 20, fontWeight: '700' },
-  note: { color: '#617A70', fontSize: 12 },
+  value: {
+    color: '#315465',
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  note: { color: '#7D8C85', fontSize: 11, lineHeight: 18 },
   graph: { flexDirection: 'row', gap: 8 },
   column: { flex: 1, alignItems: 'center', gap: 4 },
   track: {
     height: 74,
     width: '100%',
     justifyContent: 'flex-end',
-    backgroundColor: '#F1F6F4',
-    borderRadius: 6,
+    backgroundColor: '#EDF7FC',
+    borderRadius: 10,
   },
   date: { fontSize: 10, color: '#617A70' },
 });

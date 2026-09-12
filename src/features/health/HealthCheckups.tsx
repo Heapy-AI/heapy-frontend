@@ -368,7 +368,14 @@ function Compare({
 // 작성자: 김진우 — 증감은 중립색으로 표시하고 현재 회차의 시각적 강조와 분리한다.
 const cs = StyleSheet.create({
   section: { gap: 14 },
-  summary: { borderRadius: 24, padding: 20, gap: 10 },
+  summary: {
+    borderRadius: 24,
+    padding: 20,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+    boxShadow: '0px 7px 18px rgba(132, 101, 190, 0.14)',
+  },
   eyebrow: {
     fontSize: 11,
     color: '#80749A',
@@ -391,14 +398,17 @@ const cs = StyleSheet.create({
     gap: 14,
     borderWidth: 1,
     borderColor: '#EAE6F2',
-    boxShadow: '0 5px 18px rgba(75,55,105,0.05)',
+    borderTopColor: '#FFFFFF',
+    boxShadow:
+      '0px 8px 20px rgba(127, 100, 177, 0.13), 0px 2px 3px rgba(127, 100, 177, 0.05)',
   },
   heading: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   number: {
     width: 30,
     height: 30,
     borderRadius: 10,
-    backgroundColor: '#F1EBFA',
+    backgroundColor: '#EEE2FF',
+    boxShadow: '0px 3px 6px rgba(135, 103, 183, 0.13)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -422,12 +432,13 @@ const cs = StyleSheet.create({
   current: {
     flex: 1,
     minWidth: 0,
-    backgroundColor: '#F2EDFC',
+    backgroundColor: '#EEE4FF',
     borderRadius: 17,
     padding: 12,
     gap: 8,
     borderWidth: 1,
     borderColor: '#E4D8F6',
+    boxShadow: '0px 3px 7px rgba(137, 107, 184, 0.09)',
   },
   label: { fontSize: 11, fontWeight: '700', color: '#83909F' },
   date: { fontSize: 10, color: '#8A92A3' },

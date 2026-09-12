@@ -16,6 +16,7 @@ import { createIdempotencyKey } from '../../shared/utils/idempotency';
 import { ConnectionLayout } from '../dataConnection/ConnectionLayout';
 import { medicationApi, Intake } from './medicationApi';
 import { koreaDate, koreaTime, shiftDate } from './medicationForm';
+import { MedicationPushCard } from './MedicationPushCard';
 import { colors } from '../../shared/theme/tokens';
 import {
   MedicationIntakeCard,
@@ -47,6 +48,13 @@ export function MedicationScreen({
     key: string;
   }>();
   const acting = useRef(false);
+  useEffect(() => {
+    if (route.params?.notificationId) {
+      setTab('schedule');
+      if (route.params.scheduledAt)
+        setDate(koreaDate(new Date(route.params.scheduledAt)));
+    }
+  }, [route.params?.notificationId, route.params?.scheduledAt]);
   const medications = useQuery({
     queryKey: ['medications', history],
     queryFn: ({ signal }) =>
@@ -63,7 +71,12 @@ export function MedicationScreen({
   });
   const action = useMutation({
     mutationFn: (value: NonNullable<typeof pendingAction>) =>
-      medicationApi.act(value.item.intakeId, value.action, value.key),
+      medicationApi.act(
+        value.item.intakeId,
+        value.action,
+        value.key,
+        route.params?.intakeId === value.item.intakeId ? 'push' : 'app',
+      ),
     onSuccess: async () => {
       setPendingAction(undefined);
       await client.invalidateQueries({ queryKey: ['medication-intakes'] });
@@ -87,6 +100,7 @@ export function MedicationScreen({
         ) : undefined
       }
     >
+      <MedicationPushCard />
       <View style={s.hero}>
         <View style={s.iconTile}>
           <Image

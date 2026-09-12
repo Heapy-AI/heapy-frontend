@@ -1,0 +1,8 @@
+{
+  "back": "<svg width=\"40\" height=\"40\" viewBox=\"0 0 40 40\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M20 40C31.0457 40 40 31.0457 40 20C40 8.9543 31.0457 0 20 0C8.9543 0 0 8.9543 0 20C0 31.0457 8.9543 40 20 40Z\" fill=\"white\" fill-opacity=\"0.94\"/>\n<path d=\"M24 13L17 20L24 27\" stroke=\"#24483E\" stroke-width=\"2.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n</svg>\n",
+  "care": "<svg width=\"21\" height=\"18\" viewBox=\"0 0 21 18\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 8.60657H5L8 2.60657L12 14.6066L16 7.60657H21\" stroke=\"#26B889\" stroke-width=\"2\"/>\n</svg>\n",
+  "checkup": "<svg width=\"20\" height=\"20\" viewBox=\"0 0 20 20\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M2 10H18M10 2V18\" stroke=\"#F09A52\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n</svg>\n",
+  "sync": "<svg width=\"19\" height=\"19\" viewBox=\"0 0 19 19\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M1.10001 9.09998H17.1M9.10001 1.09998V17.1\" stroke=\"#4C8DFF\" stroke-width=\"2.2\" stroke-linecap=\"round\"/>\n</svg>\n",
+  "bell": "<svg width=\"21\" height=\"17\" viewBox=\"0 0 21 17\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M10.2408 1C6.64082 1 4.24082 3.5 4.24082 7.1V12.3L1.84082 16H18.6408L16.2408 12.3V7.1C16.2408 3.5 13.8408 1 10.2408 1Z\" stroke=\"#24483E\" stroke-width=\"2\"/>\n</svg>\n",
+  "bellBottom": "<svg width=\"7\" height=\"5\" viewBox=\"0 0 7 5\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M1.00049 1.00049C1.70049 2.60049 2.50049 3.20049 3.50049 3.20049C4.50049 3.20049 5.30049 2.60049 6.00049 1.00049\" stroke=\"#24483E\" stroke-width=\"2\" stroke-linecap=\"round\"/>\n</svg>\n"
+}

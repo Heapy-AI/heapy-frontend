@@ -1,3 +1,4 @@
+import type { LifestyleScoreReport } from './lifestyleScoreModel';
 import { apiClient } from '../../shared/api/client';
 import {
   Analysis,
@@ -10,6 +11,11 @@ import {
 
 // 작성자: 김진우 — 기존 공통 인증·응답 처리를 재사용한다. 조회로 AI 생성을 요청하지 않는다.
 export const healthApi = {
+  async score(signal?: AbortSignal) {
+    return (
+      await apiClient.get<LifestyleScoreReport>('/api/health/score', { signal })
+    ).data;
+  },
   async page(
     metric: Metric,
     period: PeriodCode,

@@ -23,6 +23,8 @@ import { apiClient } from '../../shared/api/client';
 import { createIdempotencyKey } from '../../shared/utils/idempotency';
 import { ConfirmModal } from '../../shared/components/ConfirmModal';
 import { healthApi } from './healthApi';
+import { LifestyleScoreCard } from './LifestyleScoreCard';
+import { HealthRequestState } from './HealthRequestState';
 import { HealthChart } from './HealthChart';
 import { HealthEntry } from './HealthEntry';
 import { HealthCheckups } from './HealthCheckups';
@@ -160,6 +162,9 @@ function AnalysisCard({
         gap: 12,
         minHeight: 145,
         overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: '#FFFFFF99',
+        boxShadow: '0px 9px 22px rgba(41, 145, 178, 0.23)',
       }}
     >
       <AmbientEffect active={active} testID="health-analysis-wave" />
@@ -167,9 +172,18 @@ function AnalysisCard({
         HEAPY AI ·{' '}
         {category === 'overall' ? '종합 분석' : '최근·장기 기록 분석'}
       </Text>
-      <Text style={[hs.section, hs.white, { fontSize: 19, lineHeight: 27 }]}>
-        {text}
-      </Text>
+      {query.isError ? (
+        <HealthRequestState
+          title="분석 결과를 불러오지 못했어요"
+          description="잠시 후 다시 시도해 주세요."
+          retry={() => query.refetch()}
+          busy={query.isFetching}
+        />
+      ) : (
+        <Text style={[hs.section, hs.white, { fontSize: 19, lineHeight: 27 }]}>
+          {text}
+        </Text>
+      )}
       {valid && (
         <Text style={[hs.text, hs.white]}>
           {data.report?.current_state ||
@@ -324,6 +338,13 @@ function MetricCard({
         },
       ]}
     >
+      <LinearGradient
+        pointerEvents="none"
+        colors={['#FFFFFF', `${color}18`]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={hs.surface}
+      />
       <View style={hs.between}>
         <View style={[hs.metricIcon, { backgroundColor: color + '12' }]}>
           <MetricIcon field={field} color={color} />
@@ -632,18 +653,14 @@ export function HealthScreen({
           <>
             <AnalysisCard category={category} active={active} />
             {pages.some(p => p.isError) && (
-              <View style={hs.card}>
-                <Text accessibilityRole="alert" style={hs.error}>
-                  일부 건강 기록을 불러오지 못했어요.
-                </Text>
-                <Pressable
-                  onPress={() =>
-                    client.invalidateQueries({ queryKey: ['health', 'page'] })
-                  }
-                >
-                  <Text style={hs.pillText}>다시 불러오기</Text>
-                </Pressable>
-              </View>
+              <HealthRequestState
+                title="일부 건강 기록을 불러오지 못했어요"
+                description="잠시 후 다시 시도해 주세요."
+                busy={pages.some(p => p.isFetching)}
+                retry={() =>
+                  client.invalidateQueries({ queryKey: ['health', 'page'] })
+                }
+              />
             )}
             {pages.some(p => p.isPending) && (
               <Text style={hs.muted}>건강 기록을 불러오고 있어요.</Text>
@@ -684,37 +701,39 @@ export function HealthScreen({
                     today
                   />
                 </View>
-                <View style={[hs.card, { minHeight: 200 }]}>
-                  <Text style={hs.section}>전체 건강 흐름</Text>
-                  <Text style={hs.muted}>수면·활동·영양 종합 점수</Text>
-                  <View
-                    style={{
-                      flex: 1,
-                      justifyContent: 'center',
-                      minHeight: 110,
-                    }}
-                  >
-                    <Text style={[hs.text, { textAlign: 'center' }]}>
-                      생활습관 점수 기준을 준비하고 있어요.
-                    </Text>
-                    <Text style={[hs.muted, { textAlign: 'center' }]}>
-                      영역별 기록에서 실제 수치와 변화를 확인할 수 있어요.
-                    </Text>
-                  </View>
-                </View>
+                <LifestyleScoreCard active={active} />
                 <Text style={hs.section}>영역별 변화</Text>
                 {domains.map(d => (
                   <Pressable
                     key={d.id}
                     accessibilityRole="button"
                     onPress={() => setRoute(d.id)}
-                    style={[hs.card, hs.row, { minHeight: 72 }]}
+                    style={({ pressed }) => [
+                      hs.card,
+                      hs.row,
+                      hs.domain,
+                      pressed && hs.pressed,
+                    ]}
                   >
-                    <HealthIcon
-                      xml={healthIcons[d.icon]}
-                      width={28}
-                      height={28}
+                    <LinearGradient
+                      pointerEvents="none"
+                      colors={['#FFFFFF', `${d.color}0D`]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={hs.surface}
                     />
+                    <View
+                      style={[
+                        hs.domainIcon,
+                        { backgroundColor: `${d.color}18` },
+                      ]}
+                    >
+                      <HealthIcon
+                        xml={healthIcons[d.icon]}
+                        width={28}
+                        height={28}
+                      />
+                    </View>
                     <View style={hs.spacer}>
                       <Text style={hs.section}>{d.title}</Text>
                       <Text style={hs.muted}>{d.description}</Text>
@@ -762,7 +781,6 @@ export function HealthScreen({
                   <DetailGraphs
                     route={route as 'bio' | 'activity' | 'nutrition' | 'sleep'}
                     data={data}
-                    onWater={() => setEntry('water')}
                   />
                 )}
                 <MissionCard category={category} />
@@ -777,11 +795,9 @@ export function HealthScreen({
 function DetailGraphs({
   route,
   data,
-  onWater,
 }: {
   route: 'bio' | 'activity' | 'nutrition' | 'sleep';
   data: Partial<Record<Metric, HealthPage>>;
-  onWater: () => void;
 }) {
   if (route === 'bio')
     return (
@@ -954,12 +970,6 @@ function DetailGraphs({
           tableSeries={series(data.water, ['amount_ml'])}
           note="1잔은 250mL예요. 수치표에서는 mL로 확인해요."
         />
-        <Pressable onPress={onWater} style={hs.card}>
-          <Text style={hs.section}>물 섭취 기록 관리 ›</Text>
-          <Text style={hs.muted}>
-            앱에서 추가한 과거 기록도 편집·삭제할 수 있어요.
-          </Text>
-        </Pressable>
       </>
     );
   return (

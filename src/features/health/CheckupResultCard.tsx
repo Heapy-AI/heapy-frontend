@@ -114,6 +114,7 @@ const s = StyleSheet.create({
     gap: 14,
     borderWidth: 1,
     borderColor: '#FFFFFF',
+    boxShadow: '0px 5px 12px rgba(67, 115, 143, 0.12)',
     minWidth: 0,
   },
   compact: { flexGrow: 1, flexBasis: '44%', padding: 13 },
@@ -125,6 +126,9 @@ const s = StyleSheet.create({
     borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+    boxShadow: '0px 3px 6px rgba(67, 115, 143, 0.13)',
   },
   name: { flex: 1, fontSize: 13, lineHeight: 19, fontWeight: '700' },
   result: {

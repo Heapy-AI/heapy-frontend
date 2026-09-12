@@ -1,5 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { colors } from '../../shared/theme/tokens';
+// 작성자: 김진우 — 내 건강의 요약·그래프·입력·검진 화면에 밝은 표면과 일관된 높이감을 적용한다.
 export const hs = StyleSheet.create({
   root: { flex: 1, minHeight: 0 },
   content: {
@@ -28,19 +29,28 @@ export const hs = StyleSheet.create({
     padding: 16,
     gap: 12,
     borderWidth: 1,
-    borderColor: colors.line,
-    boxShadow: '0 5px 18px rgba(15,69,51,0.07)',
+    borderColor: '#DCEEEB',
+    borderTopColor: '#FFFFFF',
+    boxShadow:
+      '0px 8px 18px rgba(34, 131, 145, 0.12), 0px 2px 3px rgba(34, 131, 145, 0.05)',
   },
   pill: {
     minHeight: 40,
     paddingHorizontal: 14,
     paddingVertical: 9,
     borderRadius: 22,
-    backgroundColor: '#E8F2ED',
+    backgroundColor: '#F7FFFC',
+    borderWidth: 1,
+    borderColor: '#D8EEE6',
+    boxShadow: '0px 3px 6px rgba(35, 133, 126, 0.10)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  active: { backgroundColor: colors.primary },
+  active: {
+    backgroundColor: '#1AB894',
+    borderColor: '#64DABC',
+    boxShadow: '0px 4px 9px rgba(21, 173, 137, 0.24)',
+  },
   pillText: { fontSize: 12, fontWeight: '700', color: colors.primaryDark },
   white: { color: '#FFFFFF' },
   metric: {
@@ -51,8 +61,10 @@ export const hs = StyleSheet.create({
     backgroundColor: colors.surface,
     gap: 12,
     borderWidth: 1,
-    borderColor: '#EDF4F1',
-    boxShadow: '0 5px 20px rgba(33,83,67,0.035)',
+    borderColor: '#D8EEEA',
+    borderTopColor: '#FFFFFF',
+    boxShadow:
+      '0px 8px 18px rgba(46, 128, 166, 0.14), 0px 2px 3px rgba(46, 128, 166, 0.05)',
   },
   metricIcon: {
     width: 40,
@@ -60,6 +72,9 @@ export const hs = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+    boxShadow: '0px 4px 8px rgba(56, 139, 166, 0.15)',
   },
   metricLabel: {
     fontSize: 11,
@@ -68,8 +83,8 @@ export const hs = StyleSheet.create({
     flexShrink: 1,
     textAlign: 'right',
   },
-  metricUnit: { fontSize: 11, color: '#93A6A3', fontWeight: '500' },
-  metricDate: { fontSize: 9, color: '#A0B0AD', letterSpacing: 0.2 },
+  metricUnit: { fontSize: 11, color: '#6F898E', fontWeight: '500' },
+  metricDate: { fontSize: 9, color: '#788F96', letterSpacing: 0.2 },
   syncNotice: {
     fontSize: 11,
     lineHeight: 17,
@@ -85,7 +100,8 @@ export const hs = StyleSheet.create({
     padding: 14,
     fontSize: 16,
     color: colors.text,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F4FAFC',
+    boxShadow: 'inset 0px 2px 4px rgba(45, 113, 137, 0.06)',
     minHeight: 48,
   },
   field: { gap: 7, flex: 1 },
@@ -97,4 +113,24 @@ export const hs = StyleSheet.create({
     justifyContent: 'center',
   },
   backText: { fontSize: 30, color: colors.text },
+  surface: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 23,
+  },
+  domain: { minHeight: 80 },
+  domainIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+    boxShadow: '0px 4px 8px rgba(47, 123, 151, 0.14)',
+  },
+  pressed: { transform: [{ scale: 0.985 }], opacity: 0.9 },
 });

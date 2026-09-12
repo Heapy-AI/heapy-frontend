@@ -11,8 +11,17 @@ export type RootStackParamList = {
   CheckupRegistration: { from?: 'my' } | undefined;
   CheckupDetail: { recordId: string };
   CheckupHistory: undefined;
-  MedicationManagement: { tab?: 'medications' | 'schedule' } | undefined;
+  MedicationManagement:
+    | {
+        tab?: 'medications' | 'schedule';
+        notificationId?: string;
+        intakeId?: string;
+        scheduledAt?: string;
+      }
+    | undefined;
   MedicationRegistration: { medicationId?: string } | undefined;
+  ProfileEdit: undefined;
+  Notifications: undefined;
   Home: undefined;
 };
 export type RootRoute = keyof RootStackParamList;

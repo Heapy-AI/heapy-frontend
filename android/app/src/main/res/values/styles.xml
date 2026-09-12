@@ -4,6 +4,8 @@
     <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
         <!-- Customize your theme here. -->
         <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
+        <!-- 작성자: 김진우 — 자동완성은 유지하고 둥근 입력칸 밖으로 나오는 시스템 강조 배경만 제거한다. -->
+        <item name="android:autofilledHighlight">@android:color/transparent</item>
     </style>
 
 </resources>

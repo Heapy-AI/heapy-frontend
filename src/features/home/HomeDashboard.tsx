@@ -1,10 +1,18 @@
 // 작성자: 김진우 — AI 브리핑을 제외한 홈 카드를 실제 서버 기록과 연결한다.
+import { NotificationBell } from '../notifications/NotificationBell';
 import { HomeMedicationCard } from '../medication/HomeMedicationCard';
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../shared/api/client';
 import { HomeData, formatValue } from './homeData';
 import { WeeklyCard } from './WeeklyCard';
+import {
+  HomeCardHeading,
+  HomeIcon,
+  MetricCards,
+  SettingChoice,
+  metricDesign,
+} from './HomeCardDesign';
 import { useMedicationToday } from '../medication/useMedicationToday';
 import { refreshSamsungConnection } from '../health/healthRefresh';
 import {
@@ -45,6 +53,7 @@ type Props = {
   onConnect: () => void;
   onCheckup: () => void;
   onMedication: () => void;
+  onNotifications: () => void;
   onDetail: (id: string) => void;
   onChat: () => void;
   onMissions?: () => void;
@@ -62,7 +71,7 @@ function Action({ title, onPress }: { title: string; onPress: () => void }) {
   return (
     <Pressable accessibilityRole="button" onPress={onPress}>
       <LinearGradient
-        colors={['#1AB88C', '#388CF5']}
+        colors={['#14B995', '#25ABCF']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={s.action}
@@ -72,121 +81,145 @@ function Action({ title, onPress }: { title: string; onPress: () => void }) {
     </Pressable>
   );
 }
-const metricIcons = {
-  sleep: {
-    id: 'Vector',
-    d: 'M14.45 10.0583C13.4117 10.3267 12.3213 10.3194 11.2867 10.0372C10.252 9.755 9.30895 9.2077 8.55062 8.44938C7.7923 7.69105 7.245 6.74796 6.96282 5.71333C6.68064 4.67869 6.67335 3.58832 6.94167 2.55C5.86294 2.80702 4.87231 3.34716 4.07195 4.11472C3.27159 4.88227 2.69048 5.84944 2.38856 6.91647C2.08663 7.9835 2.07483 9.11176 2.35436 10.1849C2.6339 11.258 3.19465 12.2371 3.97877 13.0212C4.7629 13.8054 5.74202 14.3661 6.81513 14.6456C7.88824 14.9252 9.0165 14.9134 10.0835 14.6114C11.1506 14.3095 12.1177 13.7284 12.8853 12.9281C13.6528 12.1277 14.193 11.1371 14.45 10.0583Z',
-    stroke: '#7656B7',
-    'stroke-width': '1.5',
-    'stroke-linecap': 'round',
-    'stroke-linejoin': 'round',
-  },
-  steps: {
-    id: 'Vector',
-    d: 'M5.95 9.27917C7.50833 10.0583 8.2875 11.475 7.65 12.6792C7.08333 13.8125 5.525 13.9542 4.0375 13.175C2.47917 12.3958 1.62917 10.9792 2.26667 9.775C2.83333 8.64167 4.39167 8.5 5.95 9.27917ZM11.05 3.11667C12.2542 2.62083 13.6 3.6125 14.1667 5.17083C14.7333 6.8 14.2375 8.2875 13.0333 8.7125C11.8292 9.20833 10.4833 8.21667 9.91667 6.65833C9.35 5.02917 9.84583 3.54167 11.05 3.11667Z',
-    stroke: '#3978C8',
-    'stroke-width': '1.35',
-    'stroke-linecap': 'round',
-    'stroke-linejoin': 'round',
-  },
-} as const;
-function MetricCards({ ids, data }: { ids: MetricId[]; data?: HomeData }) {
-  return (
-    <View style={s.grid}>
-      {ids.map((id, index) => (
-        <View
-          key={id}
-          style={[
-            s.metric,
-            {
-              backgroundColor: index % 2 ? '#EEF5FF' : '#F5F0FF',
-              borderColor: index % 2 ? '#BBD6FF' : '#D9C7FF',
-            },
-          ]}
-        >
-          <View style={s.row}>
-            <Text style={s.small}>{metrics[id][0]}</Text>
-            {(id === 'sleep' || id === 'steps') && (
-              <View
-                style={{
-                  backgroundColor: 'white',
-                  padding: 6,
-                  borderRadius: 16,
-                }}
-              >
-                <Svg width={17} height={17} viewBox="0 0 17 17">
-                  <Path
-                    d={metricIcons[id].d}
-                    stroke={metricIcons[id].stroke}
-                    strokeWidth={Number(metricIcons[id]['stroke-width'])}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    fill="none"
-                  />
-                </Svg>
-              </View>
-            )}
-          </View>
-          <Text style={s.value}>
-            {formatValue(
-              id,
-              data?.cards?.metrics[id]?.value,
-              data?.cards?.metrics[id]?.secondary,
-            )}
-          </Text>
-          <Text style={s.purple}>
-            {data?.cards?.metrics[id]?.date
-              ? `${data.cards.metrics[id]!.date} · ${
-                  id === 'count'
-                    ? '최근 7일'
-                    : id === 'heart'
-                    ? '일평균'
-                    : id === 'pressure'
-                    ? '최근 측정'
-                    : '일 합계'
-                }`
-              : '동기화하거나 기록을 추가해 주세요'}
-          </Text>
-        </View>
-      ))}
-    </View>
-  );
-}
 function DragRow({
   id,
   index,
   onMove,
   onRemove,
   onSettings,
+  drag,
+  count,
+  onDrag,
 }: {
   id: ModuleId;
   index: number;
   onMove: (from: number, to: number) => void;
   onRemove: () => void;
   onSettings: () => void;
+  drag?: { from: number; to: number };
+  count: number;
+  onDrag: (value?: { from: number; to: number }) => void;
 }) {
-  const [dy, setDy] = useState(0);
-  const responder = React.useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: () => true,
-        onPanResponderMove: (_, g) => setDy(g.dy),
-        onPanResponderRelease: (_, g) => {
-          onMove(index, index + Math.round(g.dy / 66));
-          setDy(0);
-        },
-        onPanResponderTerminate: () => setDy(0),
-        onPanResponderTerminationRequest: () => false,
-      }),
-    [index, onMove],
+  const offset = React.useRef(new Animated.Value(0)).current;
+  const lift = React.useRef(new Animated.Value(0)).current;
+  React.useEffect(
+    () => () => {
+      offset.stopAnimation();
+      lift.stopAnimation();
+    },
+    [offset, lift],
   );
+  const live = React.useRef({ index, count, onMove, onDrag });
+  live.current = { index, count, onMove, onDrag };
+  const active = drag?.from === index;
+  const displacement =
+    drag && !active
+      ? drag.from < index && index <= drag.to
+        ? -66
+        : drag.to <= index && index < drag.from
+        ? 66
+        : 0
+      : 0;
+  React.useLayoutEffect(() => {
+    if (active) return;
+    if (!drag) {
+      offset.setValue(0);
+      return;
+    }
+    const animation = Animated.spring(offset, {
+      toValue: displacement,
+      useNativeDriver: false,
+      speed: 22,
+      bounciness: 3,
+    });
+    animation.start();
+    return () => animation.stop();
+  }, [active, drag, displacement, offset]);
+  // 작성자: 김진우 — 이동 후보 위치를 미리 비우고, 손을 놓으면 해당 슬롯으로 부드럽게 정착시킨다.
+  const responder = React.useMemo(() => {
+    const destination = (dy: number) =>
+      Math.max(
+        0,
+        Math.min(
+          live.current.count - 1,
+          live.current.index + Math.round(dy / 66),
+        ),
+      );
+    const settle = (to: number, commit: boolean) => {
+      Animated.parallel([
+        Animated.spring(offset, {
+          toValue: (to - live.current.index) * 66,
+          useNativeDriver: false,
+          speed: 24,
+          bounciness: 3,
+        }),
+        Animated.timing(lift, {
+          toValue: 0,
+          duration: 160,
+          useNativeDriver: false,
+        }),
+      ]).start(({ finished }) => {
+        if (!finished) return;
+        if (commit) live.current.onMove(live.current.index, to);
+        live.current.onDrag(undefined);
+      });
+    };
+    return PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        offset.stopAnimation();
+        live.current.onDrag({
+          from: live.current.index,
+          to: live.current.index,
+        });
+        Animated.timing(lift, {
+          toValue: 1,
+          duration: 130,
+          useNativeDriver: false,
+        }).start();
+      },
+      onPanResponderMove: (_, g) => {
+        offset.setValue(
+          Math.max(
+            -live.current.index * 66 - 12,
+            Math.min(
+              (live.current.count - 1 - live.current.index) * 66 + 12,
+              g.dy,
+            ),
+          ),
+        );
+        live.current.onDrag({
+          from: live.current.index,
+          to: destination(g.dy),
+        });
+      },
+      onPanResponderRelease: (_, g) => {
+        settle(destination(g.dy), true);
+      },
+      onPanResponderTerminate: () => settle(live.current.index, false),
+      onPanResponderTerminationRequest: () => false,
+    });
+  }, [lift, offset]);
   const configurable = ['metrics', 'medication', 'weekly'].includes(id);
   return (
-    <View
+    <Animated.View
+      testID={`home-order-${id}`}
       style={[
         s.selectedRow,
-        { transform: [{ translateY: dy }], zIndex: dy ? 5 : 0 },
+        active && s.draggingRow,
+        {
+          transform: [
+            { translateY: offset },
+            {
+              scale: lift.interpolate({
+                inputRange: [0, 1],
+                outputRange: [1, 1.025],
+              }),
+            },
+          ],
+          zIndex: active ? 5 : 1,
+        },
       ]}
     >
       <Pressable
@@ -251,7 +284,7 @@ function DragRow({
       >
         <Text style={s.small}>≡</Text>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 export function HomeDashboard(_props: Props) {
@@ -302,10 +335,24 @@ export function HomeDashboard(_props: Props) {
   const { onEditingChange } = _props;
   const [saved, setSaved] = useState(defaultHomeSettings);
   const [draft, setDraft] = useState(defaultHomeSettings);
+  const [drag, setDrag] = useState<{ from: number; to: number }>();
+  const updateDrag = React.useCallback(
+    (value?: { from: number; to: number }) => {
+      setDrag(previous =>
+        previous?.from === value?.from && previous?.to === value?.to
+          ? previous
+          : value,
+      );
+    },
+    [],
+  );
   const [screen, setScreen] = useState<
     'home' | 'edit' | 'preview' | 'metrics' | 'medication' | 'weekly'
   >('home');
   const [detail, setDetail] = useState<string>();
+  React.useEffect(() => {
+    if (screen !== 'edit') setDrag(undefined);
+  }, [screen]);
 
   const [settingDraft, setSettingDraft] = useState(defaultHomeSettings);
   const pageScroll = React.useRef<ScrollView>(null);
@@ -339,6 +386,7 @@ export function HomeDashboard(_props: Props) {
     if (
       id !== 'briefing' &&
       id !== 'medication' &&
+      (id !== 'metrics' || screen !== 'metrics') &&
       (!home.data || !home.data.cards || home.isError)
     ) {
       return (
@@ -373,7 +421,7 @@ export function HomeDashboard(_props: Props) {
             style={briefingPress.style}
           >
             <LinearGradient
-              colors={['#09916E', '#14A3A3', '#3D6EE5']}
+              colors={['#17B9A6', '#25B7D1', '#609CEC']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0.6 }}
               style={s.briefing}
@@ -387,7 +435,10 @@ export function HomeDashboard(_props: Props) {
                 testID="home-wave"
               />
               <View style={{ flex: 1, gap: 6 }}>
-                <Text style={s.whiteSmall}>오늘의 AI 건강 브리핑</Text>
+                <View style={s.inline}>
+                  <HomeIcon name="briefing" color="#E2FFFA" size={17} />
+                  <Text style={s.whiteSmall}>오늘의 AI 건강 브리핑</Text>
+                </View>
                 <Text style={s.briefingTitle}>
                   오늘의 건강,{'\n'}한눈에 확인해보세요
                 </Text>
@@ -403,9 +454,33 @@ export function HomeDashboard(_props: Props) {
         <View key={id} style={screen === 'home' ? { gap: 12 } : s.card}>
           <View style={s.row}>
             <Text style={s.heading}>오늘의 핵심 데이터</Text>
-            <Text style={s.link}>{config.metrics.length}개 선택</Text>
+            {screen === 'metrics' ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="핵심 데이터 자리 바꾸기"
+                accessibilityHint="선택한 두 지표의 좌우 위치를 바꿉니다"
+                disabled={config.metrics.length !== 2}
+                accessibilityState={{ disabled: config.metrics.length !== 2 }}
+                onPress={() =>
+                  change({ metrics: [...config.metrics].reverse() })
+                }
+                style={[s.swapButton, config.metrics.length !== 2 && s.dim]}
+              >
+                <HomeIcon name="swap" color="#0C9E9A" size={21} />
+              </Pressable>
+            ) : (
+              <Text style={s.caption}>나의 건강 기록</Text>
+            )}
           </View>
-          <MetricCards ids={config.metrics} data={home.data} />
+          {home.isError || !home.data?.cards ? (
+            <Text style={s.small}>
+              {home.isPending
+                ? '기록을 불러오는 중이에요.'
+                : '기록을 불러오지 못했어요. 표시 항목과 순서는 설정할 수 있어요.'}
+            </Text>
+          ) : (
+            <MetricCards ids={config.metrics} data={home.data} />
+          )}
         </View>
       );
     if (id === 'medication')
@@ -419,13 +494,14 @@ export function HomeDashboard(_props: Props) {
       );
     if (id === 'mission')
       return (
-        <LinearGradient
-          key={id}
-          colors={['#E8FCF5', '#DEF2FF']}
-          style={[s.card, { borderColor: '#AFE5D7' }]}
-        >
+        <LinearGradient key={id} colors={['#EAFFF0', '#FFFFFF']} style={s.card}>
           <View style={s.row}>
-            <Text style={s.heading}>오늘의 미션</Text>
+            <HomeCardHeading
+              icon="mission"
+              title="오늘의 미션"
+              color="#28AB78"
+              tint="#D8FAE6"
+            />
             <Text style={s.purple}>
               {home.data?.missions?.filter(m => m.status === 'completed')
                 .length ?? 0}{' '}
@@ -434,7 +510,7 @@ export function HomeDashboard(_props: Props) {
           </View>
           {home.data?.missions?.length ? (
             home.data.missions.map(mission => (
-              <View key={mission.userMissionId} style={{ gap: 5 }}>
+              <View key={mission.userMissionId} style={s.missionItem}>
                 <Text style={s.rowTitle}>{mission.title}</Text>
                 {!!mission.description && (
                   <Text style={s.small}>{mission.description}</Text>
@@ -480,7 +556,13 @@ export function HomeDashboard(_props: Props) {
           checkup ? _props.onDetail(checkup.recordId) : _props.onCheckup()
         }
       >
-        <Text style={s.heading}>최근 건강검진</Text>
+        <HomeCardHeading
+          icon="checkup"
+          title="최근 건강검진"
+          detail="나의 검진 기록"
+          color="#258DDB"
+          tint="#E4F5FF"
+        />
         <Text style={s.value}>
           {checkup?.measuredAt ?? '등록한 검진이 없어요'}
         </Text>
@@ -509,7 +591,7 @@ export function HomeDashboard(_props: Props) {
   return (
     <ScreenTransition
       transitionKey={screen}
-      style={[s.root, screen !== 'home' && { backgroundColor: '#F6FBF9' }]}
+      style={[s.root, screen !== 'home' && { backgroundColor: '#F3FBFF' }]}
     >
       {screen !== 'home' && (
         <View style={s.header}>
@@ -532,6 +614,7 @@ export function HomeDashboard(_props: Props) {
         </View>
       )}
       <ScrollView
+        scrollEnabled={!drag}
         ref={pageScroll}
         contentContainerStyle={s.page}
         refreshControl={
@@ -543,22 +626,30 @@ export function HomeDashboard(_props: Props) {
         {(screen === 'home' || screen === 'preview') && (
           <>
             <View style={s.row}>
-              <Text style={s.rowTitle}>♥ 오늘의 건강</Text>
+              <Text style={s.rowTitle}>오늘의 건강</Text>
               {screen === 'home' && (
-                <Pressable
-                  accessibilityRole="button"
-                  style={s.editButton}
-                  onPress={() => {
-                    setDraft({
-                      ...saved,
-                      modules: [...saved.modules],
-                      metrics: [...saved.metrics],
-                    });
-                    setScreen('edit');
-                  }}
+                <View
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
                 >
-                  <Text style={s.link}>홈 편집</Text>
-                </Pressable>
+                  <NotificationBell
+                    onPress={_props.onNotifications}
+                    active={_props.active}
+                  />
+                  <Pressable
+                    accessibilityRole="button"
+                    style={s.editButton}
+                    onPress={() => {
+                      setDraft({
+                        ...saved,
+                        modules: [...saved.modules],
+                        metrics: [...saved.metrics],
+                      });
+                      setScreen('edit');
+                    }}
+                  >
+                    <Text style={s.link}>홈 편집</Text>
+                  </Pressable>
+                </View>
               )}
             </View>
             <Text style={s.title}>
@@ -626,11 +717,23 @@ export function HomeDashboard(_props: Props) {
               <Text style={s.caption}>≡ 순서 변경</Text>
             </View>
             <View style={{ gap: 8 }}>
+              {drag && (
+                <View
+                  pointerEvents="none"
+                  testID="home-drop-target"
+                  style={[s.dropTarget, { top: drag.to * 66 }]}
+                >
+                  <Text style={s.dropLabel}>여기에 놓기</Text>
+                </View>
+              )}
               {draft.modules.map((id, index) => (
                 <DragRow
                   key={id}
                   id={id}
                   index={index}
+                  drag={drag}
+                  count={draft.modules.length}
+                  onDrag={updateDrag}
                   onMove={(from, to) =>
                     setDraft(v => ({
                       ...v,
@@ -677,6 +780,13 @@ export function HomeDashboard(_props: Props) {
         )}
         {screen === 'metrics' && (
           <>
+            <View style={s.settingIntro}>
+              <Text style={s.settingEyebrow}>핵심 데이터</Text>
+              <Text style={s.settingTitle}>먼저 보고 싶은 기록을 골라요</Text>
+              <Text style={s.small}>
+                두 가지 지표를 선택하고, 교환 아이콘으로 자리를 바꿔 보세요.
+              </Text>
+            </View>
             {renderModule('metrics', settingDraft)}
             <Text style={s.rowTitle}>
               표시할 항목 · {settingDraft.metrics.length} / 2 선택
@@ -686,9 +796,28 @@ export function HomeDashboard(_props: Props) {
             </Text>
             <View style={s.grid}>
               {(Object.keys(metrics) as MetricId[]).map(id => (
-                <Pressable
-                  accessibilityRole="button"
+                <SettingChoice
                   key={id}
+                  title={metrics[id][0]}
+                  icon={id}
+                  selected={settingDraft.metrics.includes(id)}
+                  disabled={
+                    !settingDraft.metrics.includes(id) &&
+                    settingDraft.metrics.length >= 2
+                  }
+                  color={metricDesign[id].color}
+                  tint={metricDesign[id].tint}
+                  description={
+                    home.isError
+                      ? '기록 조회 실패'
+                      : home.isPending
+                      ? '기록 조회 중'
+                      : formatValue(
+                          id,
+                          home.data?.cards?.metrics[id]?.value,
+                          home.data?.cards?.metrics[id]?.secondary,
+                        )
+                  }
                   onPress={() =>
                     change({
                       metrics: settingDraft.metrics.includes(id)
@@ -698,62 +827,38 @@ export function HomeDashboard(_props: Props) {
                         : settingDraft.metrics,
                     })
                   }
-                  style={[
-                    s.option,
-                    settingDraft.metrics.includes(id) && s.selected,
-                  ]}
-                >
-                  <Text style={s.rowTitle}>
-                    {metrics[id][0]}{' '}
-                    {settingDraft.metrics.includes(id) ? '✓' : ''}
-                  </Text>
-                  <Text style={s.caption}>
-                    {formatValue(
-                      id,
-                      home.data?.cards?.metrics[id]?.value,
-                      home.data?.cards?.metrics[id]?.secondary,
-                    )}
-                  </Text>
-                </Pressable>
+                />
               ))}
             </View>
-            <Text style={s.rowTitle}>카드 순서</Text>
-            <Pressable
-              accessibilityRole="button"
-              style={s.info}
-              onPress={() =>
-                change({ metrics: [...settingDraft.metrics].reverse() })
-              }
-            >
-              <Text style={s.small}>
-                {settingDraft.metrics.map(id => metrics[id][0]).join('  ≡  ')} ·
-                눌러 순서 바꾸기
-              </Text>
-            </Pressable>
           </>
         )}
         {screen === 'medication' && (
           <>
+            <View style={s.settingIntro}>
+              <Text style={s.settingEyebrow}>복약 카드</Text>
+              <Text style={s.settingTitle}>나에게 필요한 복용 정보만</Text>
+              <Text style={s.small}>
+                홈에 보이는 일정과 정보를 미리 확인해 보세요.
+              </Text>
+            </View>
             {renderModule('medication', settingDraft)}
             <Text style={s.rowTitle}>첫 화면에 무엇을 먼저 보여줄까요?</Text>
             <View style={s.grid}>
               {(['next', 'all'] as const).map(mode => (
-                <Pressable
-                  accessibilityRole="button"
+                <SettingChoice
                   key={mode}
-                  style={[
-                    s.option,
-                    settingDraft.medicationMode === mode && s.selected,
-                  ]}
+                  title={mode === 'next' ? '다음 복약 우선' : '오늘 전체 일정'}
+                  description={
+                    mode === 'next'
+                      ? '남은 일정 한 개를 먼저 확인'
+                      : '완료·건너뜀까지 한눈에'
+                  }
+                  icon={mode === 'next' ? 'medication' : 'count'}
+                  selected={settingDraft.medicationMode === mode}
+                  color="#8057DC"
+                  tint="#EEE4FF"
                   onPress={() => change({ medicationMode: mode })}
-                >
-                  <Text style={s.rowTitle}>
-                    {mode === 'next' ? '다음 복약 우선' : '오늘 전체 일정'}
-                  </Text>
-                  <Text style={s.caption}>
-                    {mode === 'next' ? '가장 가까운 일정' : '완료 현황 중심'}
-                  </Text>
-                </Pressable>
+                />
               ))}
             </View>
             <Text style={s.rowTitle}>표시 항목</Text>
@@ -764,23 +869,23 @@ export function HomeDashboard(_props: Props) {
                 'medicationProgress',
               ] as const
             ).map((key, i) => (
-              <View key={key} style={[s.card, s.row]}>
+              <View key={key} style={s.switchRow}>
                 <Text style={s.rowTitle}>
                   {
-                    ['약 이름과 복용량', '복용 완료 버튼', '오늘의 완료 현황'][
+                    ['약 이름과 복용량', '일정 확인 버튼', '오늘의 완료 현황'][
                       i
                     ]
                   }
                 </Text>
                 <Switch
                   accessibilityLabel={
-                    ['약 이름과 복용량', '복용 완료 버튼', '오늘의 완료 현황'][
+                    ['약 이름과 복용량', '일정 확인 버튼', '오늘의 완료 현황'][
                       i
                     ]
                   }
                   value={settingDraft[key]}
                   onValueChange={v => change({ [key]: v })}
-                  trackColor={{ true: '#747BFF', false: '#DDE5E1' }}
+                  trackColor={{ true: '#A17AEE', false: '#DDE5E1' }}
                 />
               </View>
             ))}
@@ -793,20 +898,27 @@ export function HomeDashboard(_props: Props) {
         )}
         {screen === 'weekly' && (
           <>
+            <View style={s.settingIntro}>
+              <Text style={s.settingEyebrow}>주간 변화</Text>
+              <Text style={s.settingTitle}>일주일의 변화를 한눈에</Text>
+              <Text style={s.small}>
+                꾸준히 살펴볼 대표 지표를 선택해 주세요.
+              </Text>
+            </View>
             {renderModule('weekly', settingDraft)}
             <Text style={s.rowTitle}>대표 지표를 선택해 주세요</Text>
             {(['steps', 'sleep', 'exercise'] as const).map(id => (
-              <Pressable
-                accessibilityRole="button"
+              <SettingChoice
                 key={id}
-                style={[s.option, settingDraft.weekly === id && s.selected]}
+                title={metrics[id][0]}
+                description="최근 7일 평균과 이전 7일 비교"
+                fullWidth
+                icon={id}
+                selected={settingDraft.weekly === id}
+                color={metricDesign[id].color}
+                tint={metricDesign[id].tint}
                 onPress={() => change({ weekly: id })}
-              >
-                <Text style={s.rowTitle}>
-                  {metrics[id][0]} {settingDraft.weekly === id ? '✓' : ''}
-                </Text>
-                <Text style={s.caption}>최근 7일 평균과 이전 7일 비교</Text>
-              </Pressable>
+              />
             ))}
             <View style={s.info}>
               <Text style={s.small}>비교 기준 · 최근 7일 ↔ 이전 7일</Text>
@@ -880,6 +992,72 @@ export function HomeDashboard(_props: Props) {
   );
 }
 const s = StyleSheet.create({
+  dropTarget: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 58,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: '#1EBE8A',
+    backgroundColor: '#CFF9E8',
+    justifyContent: 'center',
+    paddingLeft: 14,
+    boxShadow: '0px 0px 12px rgba(25, 192, 132, 0.20)',
+  },
+  dropLabel: { color: '#07875E', fontSize: 12, fontWeight: '700' },
+  draggingRow: {
+    borderColor: '#30CC9B',
+    backgroundColor: '#FFFFFF',
+    boxShadow: '0px 10px 20px rgba(9, 139, 99, 0.24)',
+  },
+  inline: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  settingIntro: { gap: 8, paddingVertical: 8 },
+  settingEyebrow: {
+    color: '#179D99',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  settingTitle: {
+    color: '#244956',
+    fontSize: 23,
+    lineHeight: 31,
+    fontWeight: '800',
+    letterSpacing: -0.6,
+  },
+  swapButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 15,
+    backgroundColor: '#DCFAF1',
+    borderWidth: 1,
+    borderColor: '#C4F0E5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dim: { opacity: 0.4 },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    padding: 18,
+    minHeight: 68,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E4EBE7',
+  },
+  missionItem: {
+    gap: 7,
+    backgroundColor: '#FFFFFFB3',
+    padding: 14,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: '#E4EDDD',
+  },
   root: { flex: 1 },
   page: { padding: 20, gap: 14, paddingBottom: 28 },
   header: {
@@ -899,35 +1077,44 @@ const s = StyleSheet.create({
     gap: 10,
   },
   heading: { fontSize: 16, fontWeight: '800', color: '#17342D' },
-  rowTitle: { fontSize: 13, fontWeight: '700', color: '#143B30' },
+  rowTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#365148',
+    flexShrink: 1,
+  },
   small: { fontSize: 12, lineHeight: 18, color: '#617A70' },
-  caption: { fontSize: 10, lineHeight: 16, color: '#617A70' },
+  caption: { fontSize: 11, lineHeight: 18, color: '#7B8B84' },
   link: { fontSize: 11, fontWeight: '600', color: '#1AAD80' },
   purple: { fontSize: 11, color: '#7370ED' },
   whiteSmall: { fontSize: 11, color: 'white', lineHeight: 16 },
   whiteBold: { fontSize: 14, fontWeight: '700', color: 'white' },
   card: {
-    padding: 16,
-    gap: 12,
-    borderRadius: 22,
+    padding: 20,
+    gap: 17,
+    borderRadius: 25,
     borderWidth: 1,
-    borderColor: '#DBEBE5',
+    borderColor: '#E0E9E3',
     backgroundColor: '#FFFFFF',
-    boxShadow: '0px 5px 16px rgba(9,41,32,0.07)',
+    boxShadow: '0px 7px 18px rgba(44, 135, 162, 0.10)',
   },
   briefing: {
-    padding: 16,
-    borderRadius: 24,
+    padding: 22,
+    borderRadius: 27,
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 124,
+    minHeight: 166,
+    overflow: 'hidden',
+    position: 'relative',
     gap: 8,
-    boxShadow: '0px 8px 22px rgba(9,41,32,0.12)',
+    borderWidth: 1,
+    borderColor: '#FFFFFF99',
+    boxShadow: '0px 10px 22px rgba(20, 167, 190, 0.24)',
   },
   briefingTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    lineHeight: 23,
+    fontSize: 21,
+    fontWeight: '800',
+    lineHeight: 29,
     color: 'white',
   },
   briefChip: {
@@ -957,7 +1144,7 @@ const s = StyleSheet.create({
     gap: 8,
   },
   miniButton: {
-    backgroundColor: '#24B889',
+    backgroundColor: '#13A780',
     borderRadius: 15,
     minHeight: 44,
     padding: 12,
@@ -973,12 +1160,12 @@ const s = StyleSheet.create({
     borderColor: '#DBEBE5',
     minHeight: 44,
   },
-  info: { padding: 14, borderRadius: 18, backgroundColor: '#E8FAF2', gap: 8 },
+  info: { padding: 18, borderRadius: 20, backgroundColor: '#E4F9F4', gap: 8 },
   selectedRow: {
     height: 58,
     borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: '#24B88A',
+    borderWidth: 1,
+    borderColor: '#D2E3D8',
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'white',
@@ -989,7 +1176,7 @@ const s = StyleSheet.create({
     height: 28,
     width: 28,
     borderRadius: 14,
-    backgroundColor: '#E8EDEB',
+    backgroundColor: '#E2F6F3',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1030,7 +1217,7 @@ const s = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: '#D4DED9',
-    backgroundColor: '#EBF0ED',
+    backgroundColor: '#F6FCFF',
   },
   option: {
     flexGrow: 1,
@@ -1044,12 +1231,15 @@ const s = StyleSheet.create({
     backgroundColor: 'white',
   },
   selected: { backgroundColor: '#E6FAF3', borderColor: '#24B88A' },
-  footer: { padding: 20, backgroundColor: '#F6FBF9' },
+  footer: { padding: 20, backgroundColor: '#F3FBFF' },
   action: {
     minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#FFFFFF66',
+    boxShadow: '0px 6px 14px rgba(15, 171, 171, 0.22)',
   },
   overlay: {
     flex: 1,

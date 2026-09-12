@@ -138,3 +138,7 @@ test-results/
 playwright-report/
 blob-report/
 *.tsbuildinfo
+
+# 작성자: 김진우 — 푸시 프로젝트 설정은 각 개발 환경에서 제공한다.
+/android/app/google-services.json
+**/*firebase-adminsdk*.json

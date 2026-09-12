@@ -143,6 +143,7 @@ export function HomeScreen({
               onConnect={() =>
                 navigation.navigate('DataConnection', { from: 'my' })
               }
+              onNotifications={() => navigation.navigate('Notifications')}
               onMedication={() =>
                 navigation.navigate('MedicationManagement', { tab: 'schedule' })
               }

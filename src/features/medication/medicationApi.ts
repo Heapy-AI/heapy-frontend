@@ -94,11 +94,16 @@ export const medicationApi = {
         a.displayName.localeCompare(b.displayName),
     );
   },
-  async act(id: string, action: 'complete' | 'skip', key: string) {
+  async act(
+    id: string,
+    action: 'complete' | 'skip',
+    key: string,
+    source: 'app' | 'push' = 'app',
+  ) {
     return (
       await apiClient.post<Intake>(
         `/api/users/medication-intakes/${id}/${action}`,
-        { actionSource: 'app' },
+        { actionSource: source },
         { headers: headers(key) },
       )
     ).data;

@@ -32,6 +32,7 @@ export function HealthChart({
   note,
   tableSeries,
   period,
+  maximum,
 }: {
   title: string;
   series: Series[];
@@ -39,6 +40,7 @@ export function HealthChart({
   note?: string;
   tableSeries?: Series[];
   period?: HealthPage['period'];
+  maximum?: number;
 }) {
   const [width, setWidth] = useState(300),
     [zoom, setZoom] = useState(1),
@@ -95,22 +97,27 @@ export function HealthChart({
     right = 12,
     top = 30,
     bottom = 192;
-  const max = axisMaximum(
-    Math.max(
-      0,
-      ...dates.map(d =>
-        kind === 'stack'
-          ? series.reduce(
-              (sum, s) => sum + (s.points.find(p => p.date === d)?.value ?? 0),
-              0,
-            )
-          : Math.max(
-              0,
-              ...series.map(s => s.points.find(p => p.date === d)?.value ?? 0),
-            ),
+  const max =
+    maximum ??
+    axisMaximum(
+      Math.max(
+        0,
+        ...dates.map(d =>
+          kind === 'stack'
+            ? series.reduce(
+                (sum, s) =>
+                  sum + (s.points.find(p => p.date === d)?.value ?? 0),
+                0,
+              )
+            : Math.max(
+                0,
+                ...series.map(
+                  s => s.points.find(p => p.date === d)?.value ?? 0,
+                ),
+              ),
+        ),
       ),
-    ),
-  );
+    );
   const slot = (chartWidth - left - right) / Math.max(1, dates.length);
   const x = (i: number) => left + (i + 0.5) * slot,
     y = (value: number) => bottom - (value / max) * (bottom - top);
@@ -442,9 +449,11 @@ const s = StyleSheet.create({
   card: {
     padding: 19,
     gap: 14,
-    borderColor: '#F0F4F5',
+    borderColor: '#DFEDF2',
+    borderTopColor: '#FFFFFF',
     borderRadius: 26,
-    boxShadow: '0 8px 28px rgba(38,74,76,0.045)',
+    boxShadow:
+      '0px 8px 20px rgba(47, 123, 158, 0.12), 0px 2px 3px rgba(47, 123, 158, 0.04)',
   },
   title: {
     fontSize: 16,
@@ -456,7 +465,9 @@ const s = StyleSheet.create({
     paddingHorizontal: 9,
     paddingVertical: 4,
     borderRadius: 8,
-    backgroundColor: '#F3F7F7',
+    backgroundColor: '#E7F7F5',
+    borderWidth: 1,
+    borderColor: '#D7EFEA',
   },
   unitText: { fontSize: 10, color: '#8A9C9F', fontWeight: '600' },
   legend: { flexDirection: 'row', gap: 12, flexWrap: 'wrap' },
@@ -483,7 +494,10 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 11,
-    backgroundColor: '#F5F8F8',
+    backgroundColor: '#F0FAF8',
+    borderWidth: 1,
+    borderColor: '#DBEDE8',
+    boxShadow: '0px 2px 5px rgba(40, 129, 130, 0.09)',
   },
   zoomButton: {
     width: 34,
