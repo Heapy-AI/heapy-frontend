@@ -34,6 +34,7 @@ import {
   koreanDay,
   latest,
   macroSeries,
+  meanToday,
   numeric,
   periods,
   series,
@@ -459,28 +460,39 @@ function MetricCard({
   today = false,
   minutes = false,
   factor = 1,
+  mean = false,
+  digits = 1,
 }: {
   label: string;
   page?: HealthPage;
   field: string;
   unit: string;
   color?: string;
+  // 오늘 날짜에 귀속된 기록만 더한다. 수면은 깬 날(end_at)에 귀속되므로
+  // 오늘 아침에 깬 잠이 오늘치가 된다. 없으면 없는 대로 비운다.
   today?: boolean;
   // 작성자: 고수연 — 분으로 담긴 값을 '7시간 30분'으로 읽는다. 단위 글자는 따로 쓰지 않는다.
   minutes?: boolean;
   // 저장 단위와 보여줄 단위가 다를 때 곱한다. 물은 mL 로 담고 잔으로 읽는다.
   factor?: number;
+  // today 와 함께 쓴다. 오늘치를 더하는 대신 평균 낸다. 심박수처럼 합계가
+  // 뜻을 잃는 값에 쓴다.
+  mean?: boolean;
+  // 소수 자릿수. 심박수는 정수로 읽는 값이라 0 으로 둔다.
+  digits?: number;
 }) {
   const record = latest(page, field);
   const raw = today
-    ? sumToday(page, field)
+    ? mean
+      ? meanToday(page, field)
+      : sumToday(page, field)
     : record
     ? numeric(record, field)
     : null;
   const value = raw === null ? null : raw * factor;
   // 작성자: 고수연 — 오늘 잰 값이 아니면 괄호를 씌우고 그 아래에 기록일을 밝힌다.
   // 오늘 값이면 날짜가 군더더기라 줄을 비운다. 대신 자리는 남겨 카드 높이를 고정한다.
-  // today 로 오늘치를 합산하는 카드(걸음·물)는 정의상 늘 오늘이라 여기에 걸리지 않는다.
+  // today 로 오늘치를 집계하는 카드는 정의상 늘 오늘이라 여기에 걸리지 않는다.
   const stale = !today && value !== null && record?.date !== koreanDay();
   const host = useRef<View>(null);
   const motion = useHealthMotion(label + field, host);
@@ -536,7 +548,9 @@ function MetricCard({
         ) : (
           <>
             <Text style={[hs.value, { color }]}>
-              {stale ? '(' + format(value) + ')' : format(value)}
+              {stale
+                ? '(' + format(value, digits) + ')'
+                : format(value, digits)}
             </Text>
             <Text style={hs.metricUnit}>{unit}</Text>
           </>
@@ -897,13 +911,17 @@ export function HealthScreen({
                     unit="분"
                     minutes
                     color="#8057E0"
+                    today
                   />
                   <MetricCard
-                    label="심박수"
+                    label="평균 심박수"
                     page={cards.bio}
                     field="heart_rate_bpm"
                     unit="bpm"
                     color="#F04066"
+                    today
+                    mean
+                    digits={0}
                   />
                 </View>
                 <View style={hs.metricRow}>
@@ -1010,11 +1028,14 @@ function DetailGraphs({
       <>
         <View style={hs.metricRow}>
           <MetricCard
-            label="심박수"
+            label="평균 심박수"
             page={cards.bio}
             field="heart_rate_bpm"
             unit="bpm"
             color="#F04066"
+            today
+            mean
+            digits={0}
           />
           <MetricCard
             label="체중"
@@ -1200,6 +1221,7 @@ function DetailGraphs({
           unit="분"
           minutes
           color="#8057E0"
+          today
         />
         <MetricCard
           label="삼성 수면점수"

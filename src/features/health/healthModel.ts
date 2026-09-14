@@ -30,6 +30,16 @@ export const numeric = (row: HealthRecord, key: string): number | null =>
   typeof row.values[key] === 'number' ? (row.values[key] as number) : null;
 export const latest = (page: HealthPage | undefined, key: string) =>
   page?.records.find(row => numeric(row, key) !== null);
+// 작성자: 고수연 — 더해서는 안 되는 값의 오늘치. 심박수는 하루를 합치면 뜻이 없다.
+export const meanToday = (page: HealthPage | undefined, key: string) => {
+  const rows =
+    page?.records.filter(
+      row => row.date === koreanDay() && numeric(row, key) !== null,
+    ) ?? [];
+  return rows.length
+    ? rows.reduce((sum, row) => sum + (numeric(row, key) ?? 0), 0) / rows.length
+    : null;
+};
 export const sumToday = (page: HealthPage | undefined, key: string) => {
   const rows =
     page?.records.filter(
