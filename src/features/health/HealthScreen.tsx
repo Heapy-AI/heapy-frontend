@@ -84,6 +84,8 @@ const entries: { id: EntryKind; title: string; description: string }[] = [
     description: '공복 여부·수치·인슐린 농도',
   },
 ];
+// 작성자: 고수연 — 수치 카드가 쓰는 고정 조회 기간. 오늘·최근 기록만 필요해 짧게 잡는다.
+const CARD_PERIOD: PeriodCode = '7d';
 const metrics: Metric[] = [
   'bio',
   'activity',
@@ -355,6 +357,48 @@ function MissionCard({ category }: { category: Category }) {
     </View>
   );
 }
+// 작성자: 고수연 — 조회 기간 선택. 수치 카드는 오늘·최근 기록만 보여주므로 그래프 바로
+// 위에 둔다. 기록이 많아 그래프를 못 그릴 때도 기간을 줄일 수 있어야 해서 따로 뺐다.
+function PeriodPicker({
+  period,
+  setPeriod,
+  page,
+}: {
+  period: PeriodCode;
+  setPeriod: (code: PeriodCode) => void;
+  page?: HealthPage;
+}) {
+  return (
+    <>
+      <View style={hs.row}>
+        {periods.map(p => (
+          <Pressable
+            accessibilityRole="radio"
+            accessibilityState={{ checked: period === p.code }}
+            key={p.code}
+            onPress={() => setPeriod(p.code)}
+            style={[
+              hs.pill,
+              { flex: 1, paddingHorizontal: 4 },
+              period === p.code && hs.active,
+            ]}
+          >
+            <Text style={[hs.pillText, period === p.code && hs.white]}>
+              {p.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+      <Text style={hs.muted}>
+        {page?.period.from} – {page?.period.to}
+        {period === '90d' || period === '180d' || period === '1y'
+          ? ' · 구간별 기록일 평균'
+          : ''}
+      </Text>
+    </>
+  );
+}
+
 // 작성자: 고수연 — 분을 [숫자, 단위] 쌍으로 쪼갠다. 한 시간이 안 되면 분만 남긴다.
 function hourParts(value: number | null): Array<[string, string]> {
   if (value === null || !Number.isFinite(value)) return [['—', '']];
@@ -475,6 +519,12 @@ export function HealthScreen({
     [syncError, setSyncError] = useState(''),
     [syncNotice, setSyncNotice] = useState('');
   const motionListeners = useRef(new Set<() => void>());
+  // 작성자: 고수연 — 화면을 바꾸면 스크롤을 맨 위로 올린다. 하나의 ScrollView 가 내용만
+  // 갈아끼우는 구조라, 그냥 두면 이전 화면에서 내려둔 위치가 그대로 남는다.
+  const scroller = useRef<ScrollView>(null);
+  useEffect(() => {
+    scroller.current?.scrollTo({ y: 0, animated: false });
+  }, [route, tab, entry]);
   const client = useQueryClient();
   const pages = useQueries({
     queries: metrics.map(metric => ({
@@ -488,6 +538,22 @@ export function HealthScreen({
   });
   const data = Object.fromEntries(
     metrics.map((m, i) => [m, pages[i]?.data]),
+  ) as Partial<Record<Metric, HealthPage>>;
+  // 작성자: 고수연 — 수치 카드는 오늘·최근 기록만 보여주므로 기간 선택과 무관해야 한다.
+  // 그래프용 조회와 분리해 7일로 고정한다. 같은 데이터를 쓰면 90일을 고르는 순간
+  // 카드의 '최근 기록'까지 그 구간 기준으로 바뀐다.
+  const cardPages = useQueries({
+    queries: metrics.map(metric => ({
+      queryKey: ['health', 'page', metric, CARD_PERIOD],
+      queryFn: ({ signal }: { signal: AbortSignal }) =>
+        healthApi.page(metric, CARD_PERIOD, signal),
+      enabled: active && !entry && route !== 'entries' && tab === 'life',
+      retry: false,
+      staleTime: 60000,
+    })),
+  });
+  const cards = Object.fromEntries(
+    metrics.map((m, i) => [m, cardPages[i]?.data]),
   ) as Partial<Record<Metric, HealthPage>>;
   const goBack = () => {
     if (entry) setEntry(null);
@@ -580,6 +646,7 @@ export function HealthScreen({
   return (
     <HealthMotionContext.Provider value={motionListeners.current}>
       <ScrollView
+        ref={scroller}
         onScroll={() => motionListeners.current.forEach(reveal => reveal())}
         scrollEventThrottle={80}
         style={hs.root}
@@ -761,7 +828,7 @@ export function HealthScreen({
                 <View style={[hs.row, { flexWrap: 'wrap' }]}>
                   <MetricCard
                     label="수면시간"
-                    page={data.sleep}
+                    page={cards.sleep}
                     field="total_sleep_minutes"
                     unit="분"
                     minutes
@@ -769,7 +836,7 @@ export function HealthScreen({
                   />
                   <MetricCard
                     label="심박수"
-                    page={data.bio}
+                    page={cards.bio}
                     field="heart_rate_bpm"
                     unit="bpm"
                     color="#F04066"
@@ -778,14 +845,14 @@ export function HealthScreen({
                 <View style={hs.row}>
                   <MetricCard
                     label="걸음 수"
-                    page={data.activity}
+                    page={cards.activity}
                     field="steps"
                     unit="걸음"
                     today
                   />
                   <MetricCard
                     label="물 섭취"
-                    page={data.water}
+                    page={cards.water}
                     field="amount_ml"
                     unit="잔"
                     factor={1 / 250}
@@ -817,44 +884,31 @@ export function HealthScreen({
               </>
             ) : (
               <>
-                <View style={hs.row}>
-                  {periods.map(p => (
-                    <Pressable
-                      accessibilityRole="radio"
-                      accessibilityState={{ checked: period === p.code }}
-                      key={p.code}
-                      onPress={() => setPeriod(p.code)}
-                      style={[
-                        hs.pill,
-                        { flex: 1, paddingHorizontal: 4 },
-                        period === p.code && hs.active,
-                      ]}
-                    >
-                      <Text
-                        style={[hs.pillText, period === p.code && hs.white]}
-                      >
-                        {p.label}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-                <Text style={hs.muted}>
-                  {data[route as Metric]?.period.from} –{' '}
-                  {data[route as Metric]?.period.to}
-                  {period === '90d' || period === '180d' || period === '1y'
-                    ? ' · 구간별 기록일 평균'
-                    : ''}
-                </Text>
                 {data[route as Metric]?.dataTruncated ? (
-                  <Text style={hs.error}>
-                    기록이 많아 전체 그래프를 표시하지 못했어요. 짧은 기간을
-                    선택해 주세요.
-                  </Text>
+                  <>
+                    <PeriodPicker
+                      period={period}
+                      setPeriod={setPeriod}
+                      page={data[route as Metric]}
+                    />
+                    <Text style={hs.error}>
+                      기록이 많아 전체 그래프를 표시하지 못했어요. 짧은 기간을
+                      선택해 주세요.
+                    </Text>
+                  </>
                 ) : (
                   <DetailGraphs
                     route={route as 'bio' | 'activity' | 'nutrition' | 'sleep'}
                     data={data}
+                    cards={cards}
                     onWater={() => setEntry('water')}
+                    periodPicker={
+                      <PeriodPicker
+                        period={period}
+                        setPeriod={setPeriod}
+                        page={data[route as Metric]}
+                      />
+                    }
                   />
                 )}
                 <MissionCard category={category} />
@@ -869,11 +923,17 @@ export function HealthScreen({
 function DetailGraphs({
   route,
   data,
+  cards,
   onWater,
+  periodPicker,
 }: {
   route: 'bio' | 'activity' | 'nutrition' | 'sleep';
+  // 그래프용. 선택한 기간을 따른다.
   data: Partial<Record<Metric, HealthPage>>;
+  // 수치 카드용. 기간과 무관하게 고정 구간을 본다.
+  cards: Partial<Record<Metric, HealthPage>>;
   onWater: () => void;
+  periodPicker: React.ReactNode;
 }) {
   if (route === 'bio')
     return (
@@ -881,17 +941,18 @@ function DetailGraphs({
         <View style={hs.row}>
           <MetricCard
             label="심박수"
-            page={data.bio}
+            page={cards.bio}
             field="heart_rate_bpm"
             unit="bpm"
           />
           <MetricCard
             label="체중"
-            page={data.bio}
+            page={cards.bio}
             field="weight_kg"
             unit="kg"
           />
         </View>
+        {periodPicker}
         <HealthChart
           period={data.bio?.period}
           title="체중 변화"
@@ -929,17 +990,18 @@ function DetailGraphs({
         <View style={hs.row}>
           <MetricCard
             label="걸음 수"
-            page={data.activity}
+            page={cards.activity}
             field="steps"
             unit="걸음"
           />
           <MetricCard
             label="운동 열량"
-            page={data.exercise}
+            page={cards.exercise}
             field="calories_kcal"
             unit="kcal"
           />
         </View>
+        {periodPicker}
         <HealthChart
           period={data.activity?.period}
           title="걸음 추이"
@@ -1017,6 +1079,7 @@ function DetailGraphs({
             <Text style={hs.muted}>오늘의 식사 기록이 없어요.</Text>
           )}
         </View>
+        {periodPicker}
         <HealthChart
           period={data.nutrition?.period}
           title="섭취 칼로리 추이"
@@ -1059,7 +1122,7 @@ function DetailGraphs({
       <View style={hs.row}>
         <MetricCard
           label="수면시간"
-          page={data.sleep}
+          page={cards.sleep}
           field="total_sleep_minutes"
           unit="분"
           minutes
@@ -1067,12 +1130,13 @@ function DetailGraphs({
         />
         <MetricCard
           label="삼성 수면점수"
-          page={data.sleep}
+          page={cards.sleep}
           field="sleep_score"
           unit="점"
           color="#8057E0"
         />
       </View>
+      {periodPicker}
       {/* 작성자: 고수연 — 막대 높이가 곧 그날 수면시간이라 따로 두지 않고 하나로 합쳤다.
           단계가 없는 밤은 총 수면시간이 한 칸으로 그려진다. */}
       <HealthChart
