@@ -478,6 +478,10 @@ function MetricCard({
     ? numeric(record, field)
     : null;
   const value = raw === null ? null : raw * factor;
+  // 작성자: 고수연 — 오늘 잰 값이 아니면 괄호를 씌우고 그 아래에 기록일을 밝힌다.
+  // 오늘 값이면 날짜가 군더더기라 줄을 비운다. 대신 자리는 남겨 카드 높이를 고정한다.
+  // today 로 오늘치를 합산하는 카드(걸음·물)는 정의상 늘 오늘이라 여기에 걸리지 않는다.
+  const stale = !today && value !== null && record?.date !== koreanDay();
   const host = useRef<View>(null);
   const motion = useHealthMotion(label + field, host);
   return (
@@ -518,22 +522,27 @@ function MetricCard({
       >
         {minutes ? (
           // 작성자: 고수연 — '시간'과 '분'도 단위다. 다른 카드처럼 작고 흐리게 둔다.
-          hourParts(value).map(([amount, suffix]) => (
+          // 괄호는 '7시간 30분' 전체를 감싸야 해서 앞뒤 조각에 나눠 붙인다.
+          hourParts(value).map(([amount, suffix], i, all) => (
             <View key={suffix} style={hs.metricAmount}>
-              <Text style={[hs.value, { color }]}>{amount}</Text>
-              <Text style={hs.metricUnit}>{suffix}</Text>
+              <Text style={[hs.value, { color }]}>
+                {stale && i === 0 ? '(' + amount : amount}
+              </Text>
+              <Text style={hs.metricUnit}>
+                {stale && i === all.length - 1 ? suffix + ')' : suffix}
+              </Text>
             </View>
           ))
         ) : (
           <>
-            <Text style={[hs.value, { color }]}>{format(value)}</Text>
+            <Text style={[hs.value, { color }]}>
+              {stale ? '(' + format(value) + ')' : format(value)}
+            </Text>
             <Text style={hs.metricUnit}>{unit}</Text>
           </>
         )}
       </View>
-      <Text style={hs.metricDate}>
-        {today ? koreanDay() : record?.date ?? '기록 없음'}
-      </Text>
+      {stale && <Text style={hs.metricDate}>{record?.date}</Text>}
     </Animated.View>
   );
 }
@@ -594,6 +603,19 @@ export function HealthScreen({
   const cards = Object.fromEntries(
     metrics.map((m, i) => [m, cardPages[i]?.data]),
   ) as Partial<Record<Metric, HealthPage>>;
+  // 작성자: 고수연 — 체중만 따로 조회한다. 체중은 매일 재는 값이 아니라 위의 생체 7일
+  // 조회에는 한 건도 안 들어 있는 날이 많다. bioType 을 주면 서버가 그 종류의 마지막
+  // 기록일을 기준일로 잡아 주므로, 한 달 전에 잰 몸무게도 창 안에 들어온다.
+  const weightPage = useQuery({
+    queryKey: ['health', 'page', 'bio', CARD_PERIOD, 'body_composition'],
+    queryFn: ({ signal }: { signal: AbortSignal }) =>
+      healthApi.page('bio', CARD_PERIOD, signal, {
+        bioType: 'body_composition',
+      }),
+    enabled: active && !entry && route === 'bio' && tab === 'life',
+    retry: false,
+    staleTime: 60000,
+  });
   const goBack = () => {
     if (entry) setEntry(null);
     else if (route !== 'home') setRoute('home');
@@ -867,7 +889,7 @@ export function HealthScreen({
             {route === 'home' ? (
               <>
                 <Text style={hs.section}>오늘의 건강 상태</Text>
-                <View style={[hs.row, { flexWrap: 'wrap' }]}>
+                <View style={[hs.metricRow, { flexWrap: 'wrap' }]}>
                   <MetricCard
                     label="수면시간"
                     page={cards.sleep}
@@ -884,7 +906,7 @@ export function HealthScreen({
                     color="#F04066"
                   />
                 </View>
-                <View style={hs.row}>
+                <View style={hs.metricRow}>
                   <MetricCard
                     label="걸음 수"
                     page={cards.activity}
@@ -943,6 +965,7 @@ export function HealthScreen({
                     route={route as 'bio' | 'activity' | 'nutrition' | 'sleep'}
                     data={data}
                     cards={cards}
+                    weight={weightPage.data}
                     onWater={() => setEntry('water')}
                     periodPicker={
                       <PeriodPicker
@@ -968,6 +991,7 @@ function DetailGraphs({
   route,
   data,
   cards,
+  weight,
   onWater,
   periodPicker,
 }: {
@@ -976,13 +1000,15 @@ function DetailGraphs({
   data: Partial<Record<Metric, HealthPage>>;
   // 수치 카드용. 기간과 무관하게 고정 구간을 본다.
   cards: Partial<Record<Metric, HealthPage>>;
+  // 체중 카드용. 마지막으로 잰 날을 기준으로 받아 온 생체 기록이다.
+  weight?: HealthPage;
   onWater: () => void;
   periodPicker: React.ReactNode;
 }) {
   if (route === 'bio')
     return (
       <>
-        <View style={hs.row}>
+        <View style={hs.metricRow}>
           <MetricCard
             label="심박수"
             page={cards.bio}
@@ -992,7 +1018,7 @@ function DetailGraphs({
           />
           <MetricCard
             label="체중"
-            page={cards.bio}
+            page={weight ?? cards.bio}
             field="weight_kg"
             unit="kg"
             color="#F17B4E"
@@ -1033,7 +1059,7 @@ function DetailGraphs({
   if (route === 'activity')
     return (
       <>
-        <View style={hs.row}>
+        <View style={hs.metricRow}>
           <MetricCard
             label="걸음 수"
             page={cards.activity}
@@ -1166,7 +1192,7 @@ function DetailGraphs({
     );
   return (
     <>
-      <View style={hs.row}>
+      <View style={hs.metricRow}>
         <MetricCard
           label="수면시간"
           page={cards.sleep}

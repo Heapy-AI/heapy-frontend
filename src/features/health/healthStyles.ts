@@ -12,6 +12,9 @@ export const hs = StyleSheet.create({
     alignSelf: 'center',
   },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  // 작성자: 고수연 — 수치 카드 줄. 기록일 줄은 예전 기록일 때만 생기므로 카드 높이가
+  // 서로 달라진다. stretch 로 한 줄 안에서 높이를 맞춘다.
+  metricRow: { flexDirection: 'row', alignItems: 'stretch', gap: 10 },
   between: {
     flexDirection: 'row',
     alignItems: 'center',
