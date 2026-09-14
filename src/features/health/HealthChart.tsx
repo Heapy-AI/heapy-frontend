@@ -157,14 +157,17 @@ export function HealthChart({
         </View>
       </View>
       <View style={s.legend}>
-        {series.map((a, i) => (
-          <View key={a.key} style={s.legendItem}>
-            <View
-              style={[s.dot, { backgroundColor: palette[i % palette.length] }]}
-            />
-            <Text style={s.legendText}>{a.label}</Text>
-          </View>
-        ))}
+        {/* 작성자: 고수연 — 라벨이 빈 계열은 범례에 올리지 않는다. 보조 표시용이다. */}
+        {series.map((a, i) =>
+          a.label ? (
+            <View key={a.key} style={s.legendItem}>
+              <View
+                style={[s.dot, { backgroundColor: palette[i % palette.length] }]}
+              />
+              <Text style={s.legendText}>{a.label}</Text>
+            </View>
+          ) : null,
+        )}
       </View>
       {!dates.length ? (
         <Text style={s.empty}>아직 표시할 기록이 없어요.</Text>
