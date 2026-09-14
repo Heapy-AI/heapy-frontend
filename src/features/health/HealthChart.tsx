@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, G, Line, Rect, Text as SvgText } from 'react-native-svg';
 import { HealthPage, Series } from './types';
-import { chartDates, format } from './healthModel';
+import { chartDates, format, formatMinutes } from './healthModel';
 import { axisMaximum, lineSegments } from './chartGeometry';
 import { useHealthMotion } from './useHealthMotion';
 import { hs } from './healthStyles';
@@ -25,6 +25,9 @@ const palette = [
   '#E886A4',
   '#438F99',
 ];
+// 작성자: 고수연 — 계열이 color 를 들고 있으면 그 색을 쓰고, 없을 때만 기본 팔레트를 쓴다.
+const colorOf = (entry: Series, index: number) =>
+  entry.color ?? palette[index % palette.length];
 export function HealthChart({
   title,
   series,
@@ -95,8 +98,9 @@ export function HealthChart({
     right = 12,
     top = 30,
     bottom = 192;
-  const max = axisMaximum(
-    Math.max(
+  // 작성자: 고수연 — 수면처럼 분으로 재는 값은 3시간 간격이 읽기 쉽다.
+  const minuteAxis = series[0]?.unit === '분';
+  const peak = Math.max(
       0,
       ...dates.map(d =>
         kind === 'stack'
@@ -109,16 +113,28 @@ export function HealthChart({
               ...series.map(s => s.points.find(p => p.date === d)?.value ?? 0),
             ),
       ),
-    ),
   );
+  // 축은 3시간 배수로 끊는다. 다만 배수를 넘긴 양이 1시간 이내면 굳이 한 칸을 더 올리지
+  // 않는다. 3시간 5분 때문에 축을 6시간으로 잡으면 막대가 절반밖에 차지 않는다.
+  // 그 경우 값이 축을 조금 넘어서므로 막대는 천장에서 멈춘다(아래 y 함수).
+  const minuteAxisMax = () => {
+    const floor = Math.floor(peak / 180) * 180;
+    return Math.max(180, peak - floor <= 60 ? floor : floor + 180);
+  };
+  const max = minuteAxis ? minuteAxisMax() : axisMaximum(peak);
+  const ticks = minuteAxis
+    ? Array.from({ length: max / 180 + 1 }, (_, i) => (i * 180) / max)
+    : [0, 0.25, 0.5, 0.75, 1];
   const slot = (chartWidth - left - right) / Math.max(1, dates.length);
   const x = (i: number) => left + (i + 0.5) * slot,
-    y = (value: number) => bottom - (value / max) * (bottom - top);
+    // 값이 축 최대를 조금 넘길 수 있다(위 minuteAxisMax). 그때 막대는 천장에서 멈춘다.
+    y = (value: number) =>
+      Math.max(top, bottom - (value / max) * (bottom - top));
   const selectedValues = series
     .map((s, i) => ({
       series: s,
       point: s.points.find(p => p.date === selected),
-      color: palette[i % palette.length],
+      color: colorOf(s, i),
     }))
     .filter(v => v.point);
   const choose = (date: string) =>
@@ -152,19 +168,24 @@ export function HealthChart({
         <Text accessibilityRole="header" style={s.title}>
           {title}
         </Text>
-        <View style={s.unit}>
-          <Text style={s.unitText}>{series[0]?.unit ?? ''}</Text>
-        </View>
+        {minuteAxis ? null : (
+          <View style={s.unit}>
+            <Text style={s.unitText}>{series[0]?.unit ?? ''}</Text>
+          </View>
+        )}
       </View>
       <View style={s.legend}>
-        {series.map((a, i) => (
-          <View key={a.key} style={s.legendItem}>
-            <View
-              style={[s.dot, { backgroundColor: palette[i % palette.length] }]}
-            />
-            <Text style={s.legendText}>{a.label}</Text>
-          </View>
-        ))}
+        {/* 작성자: 고수연 — legendHidden 계열은 범례에서 뺀다. 말풍선에는 이름이 나온다. */}
+        {series.map((a, i) =>
+          !a.legendHidden ? (
+            <View key={a.key} style={s.legendItem}>
+              <View
+                style={[s.dot, { backgroundColor: colorOf(a, i) }]}
+              />
+              <Text style={s.legendText}>{a.label}</Text>
+            </View>
+          ) : null,
+        )}
       </View>
       {!dates.length ? (
         <Text style={s.empty}>아직 표시할 기록이 없어요.</Text>
@@ -173,7 +194,7 @@ export function HealthChart({
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={{ width: chartWidth, height: 226 }}>
               <Svg width={chartWidth} height={226}>
-                {[0, 0.25, 0.5, 0.75, 1].map(r => (
+                {ticks.map(r => (
                   <G key={r}>
                     <Line
                       x1={left}
@@ -190,7 +211,9 @@ export function HealthChart({
                       fontSize={9}
                       fill="#9AA9B1"
                     >
-                      {format(max * r, max < 10 ? 1 : 0)}
+                      {series[0]?.unit === '분'
+                        ? formatMinutes(max * r)
+                        : format(max * r, max < 10 ? 1 : 0)}
                     </SvgText>
                   </G>
                 ))}
@@ -217,7 +240,7 @@ export function HealthChart({
                           y1={y(segment.from.value)}
                           x2={x(dates.indexOf(segment.to.date))}
                           y2={y(segment.to.value)}
-                          stroke={palette[si % palette.length]}
+                          stroke={colorOf(a, si)}
                           strokeWidth={2.2}
                           strokeLinecap="round"
                           strokeDasharray={segment.gap ? '4 5' : undefined}
@@ -231,7 +254,7 @@ export function HealthChart({
                               cx={x(dates.indexOf(p.date))}
                               cy={y(p.value)}
                               r={9}
-                              fill={palette[si % palette.length]}
+                              fill={colorOf(a, si)}
                               fillOpacity={0.13}
                             />
                           )}
@@ -241,7 +264,7 @@ export function HealthChart({
                             cy={y(p.value)}
                             r={3.5}
                             fill="white"
-                            stroke={palette[si % palette.length]}
+                            stroke={colorOf(a, si)}
                             strokeWidth={2}
                             onPress={() => choose(p.date)}
                           />
@@ -285,7 +308,7 @@ export function HealthChart({
                               inputRange: [0, 1],
                               outputRange: [0, height],
                             })}
-                            fill={palette[si % palette.length]}
+                            fill={colorOf(a, si)}
                             rx={kind === 'stack' ? 2 : 5}
                             onPress={() => choose(p.date)}
                           />
@@ -371,8 +394,14 @@ export function HealthChart({
                       <View style={[s.dot, { backgroundColor: v.color }]} />
                       <Text style={s.tooltipLabel}>{v.series.label}</Text>
                       <Text style={s.tooltipValue}>
-                        {format(v.point?.value)}{' '}
-                        <Text style={s.tooltipUnit}>{v.series.unit}</Text>
+                        {v.series.unit === '분' ? (
+                          formatMinutes(v.point?.value)
+                        ) : (
+                          <>
+                            {format(v.point?.value)}{' '}
+                            <Text style={s.tooltipUnit}>{v.series.unit}</Text>
+                          </>
+                        )}
                       </Text>
                     </View>
                   ))}
@@ -424,7 +453,10 @@ export function HealthChart({
                 const p = a.points.find(v => v.date === d);
                 return (
                   <Text key={a.key} style={hs.muted}>
-                    {a.label}: {format(p?.value)} {a.unit}
+                    {a.label}:{' '}
+                    {a.unit === '분'
+                      ? formatMinutes(p?.value)
+                      : `${format(p?.value)} ${a.unit}`}
                     {p
                       ? ` · 기록 ${p.recordedDays}일 / 구간 ${p.spanDays}일`
                       : ''}

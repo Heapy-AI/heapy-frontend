@@ -92,6 +92,7 @@ Reference/
 artifacts/
 *.md
 *.mdx
+!/README.md # 최상위 README만 예외처리 - 작성자: 고수연
 *.pdf
 *.docx
 *.pptx

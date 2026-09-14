@@ -47,9 +47,9 @@ const domains = [
   {
     id: 'bio',
     title: '생체 기록',
-    description: '심박 · 혈압 · 체중 · BMI',
-    icon: 'bio',
-    color: '#20BA8A',
+    description: '심박수 · 혈압 · 체중 · BMI',
+    icon: 'heart_rate_bpm',
+    color: '#F04066',
   },
   {
     id: 'activity',
@@ -67,23 +67,52 @@ const domains = [
   },
   {
     id: 'sleep',
-    title: '수면',
+    title: '수면 기록',
     description: '수면시간 · 단계 · 규칙성',
     icon: 'sleep',
     color: '#8057E0',
   },
 ] as const;
-const entries: { id: EntryKind; title: string; description: string }[] = [
-  { id: 'sleep', title: '수면', description: '취침·기상 시각과 수면시간' },
-  { id: 'blood_pressure', title: '혈압', description: '수축기·이완기·맥박' },
-  { id: 'body_composition', title: '체성분', description: '체중·키·BMI' },
-  { id: 'water', title: '물 섭취', description: '섭취 시각과 물의 양' },
+// 작성자: 고수연 — color 는 healthIcons 의 선 색과 같은 값이다. 아이콘 타일 배경이 이 색을 따른다.
+const entries: {
+  id: EntryKind;
+  title: string;
+  description: string;
+  color: string;
+}[] = [
+  {
+    id: 'sleep',
+    title: '수면',
+    description: '취침·기상 시각과 수면시간',
+    color: '#8057E0',
+  },
+  {
+    id: 'blood_pressure',
+    title: '혈압',
+    description: '수축기·이완기·맥박',
+    color: '#F04066',
+  },
+  {
+    id: 'body_composition',
+    title: '체성분',
+    description: '체중·키·BMI',
+    color: '#F17B4E',
+  },
+  {
+    id: 'water',
+    title: '물 섭취',
+    description: '섭취 시각과 물의 양',
+    color: '#4285F4',
+  },
   {
     id: 'blood_glucose',
     title: '혈당',
     description: '공복 여부·수치·인슐린 농도',
+    color: '#F17B4E',
   },
 ];
+// 작성자: 고수연 — 수치 카드가 쓰는 고정 조회 기간. 오늘·최근 기록만 필요해 짧게 잡는다.
+const CARD_PERIOD: PeriodCode = '7d';
 const metrics: Metric[] = [
   'bio',
   'activity',
@@ -196,6 +225,82 @@ function AnalysisCard({
     </LinearGradient>
   );
 }
+// 작성자: 고수연 — 점수를 내지 못한 이유. 서버가 내려주는 코드를 사람 말로 옮긴다.
+const scoreReasons: Record<string, string> = {
+  sleep_insufficient: '수면 기록이 더 필요해요.',
+  activity_insufficient: '활동 기록이 더 필요해요.',
+  bmi_missing: '체중이나 체성분 기록이 필요해요.',
+  bmi_stale: '체중 기록이 오래되어 최근 값이 필요해요.',
+  age_unavailable: '생년월일을 입력하면 점수를 낼 수 있어요.',
+  age_not_supported: '아직 만 20세 이상만 점수를 제공해요.',
+  data_limit_exceeded: '기록이 너무 많아 오늘 점수를 확정하지 못했어요.',
+  no_record: '아직 기록이 없어요.',
+};
+
+function ScoreCard() {
+  const query = useQuery({
+    queryKey: ['health', 'score', koreanDay()],
+    queryFn: ({ signal }) => healthApi.score('7d', signal),
+    retry: false,
+    staleTime: 60000,
+  });
+  const latest = query.data?.latest;
+  const total = latest?.score ?? null;
+  // 점수가 없을 때는 첫 번째 사유만 보여준다. 여러 개를 늘어놓으면 읽지 않는다.
+  const message = query.isPending
+    ? '점수를 불러오고 있어요.'
+    : query.isError
+    ? '점수를 불러오지 못했어요.'
+    : scoreReasons[latest?.reasons?.[0] ?? ''] ??
+      '기록이 더 쌓이면 점수를 보여드릴게요.';
+
+  return (
+    <View style={[hs.card, { minHeight: 200 }]}>
+      <Text style={hs.section}>전체 건강 흐름</Text>
+      <Text style={hs.muted}>오늘의 건강 종합 점수</Text>
+      <View style={{ flex: 1, justifyContent: 'center', minHeight: 110 }}>
+        {total === null ? (
+          <>
+            <Text style={[hs.text, { textAlign: 'center' }]}>{message}</Text>
+            <Text style={[hs.muted, { textAlign: 'center' }]}>
+              영역별 기록에서 실제 수치와 변화를 확인할 수 있어요.
+            </Text>
+          </>
+        ) : (
+          <>
+            <Text
+              accessibilityLabel={`오늘의 건강 종합 점수 ${total}점`}
+              style={[
+                hs.value,
+                { textAlign: 'center', fontSize: 48, lineHeight: 56 },
+              ]}
+            >
+              {total}
+              <Text style={[hs.muted, { fontSize: 18 }]}>점</Text>
+            </Text>
+            <View style={[hs.row, { justifyContent: 'center', gap: 18 }]}>
+              <ScorePart label="수면" value={latest?.sleep?.score} />
+              <ScorePart label="활동" value={latest?.activity?.score} />
+              <ScorePart label="BMI" value={latest?.bmiScore} />
+            </View>
+          </>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function ScorePart({ label, value }: { label: string; value?: number | null }) {
+  return (
+    <View style={{ alignItems: 'center' }}>
+      <Text style={hs.muted}>{label}</Text>
+      <Text style={hs.text}>
+        {value === null || value === undefined ? '—' : Math.round(value)}
+      </Text>
+    </View>
+  );
+}
+
 function MissionCard({ category }: { category: Category }) {
   const client = useQueryClient(),
     [confirm, setConfirm] = useState(false),
@@ -279,6 +384,72 @@ function MissionCard({ category }: { category: Category }) {
     </View>
   );
 }
+// 작성자: 고수연 — 조회 기간 선택. 수치 카드는 오늘·최근 기록만 보여주므로 그래프 바로
+// 위에 둔다. 기록이 많아 그래프를 못 그릴 때도 기간을 줄일 수 있어야 해서 따로 뺐다.
+function PeriodPicker({
+  period,
+  setPeriod,
+  page,
+  pending = false,
+  failed = false,
+}: {
+  period: PeriodCode;
+  setPeriod: (code: PeriodCode) => void;
+  page?: HealthPage;
+  pending?: boolean;
+  failed?: boolean;
+}) {
+  return (
+    <>
+      <View style={hs.row}>
+        {periods.map(p => (
+          <Pressable
+            accessibilityRole="radio"
+            accessibilityState={{ checked: period === p.code }}
+            key={p.code}
+            onPress={() => setPeriod(p.code)}
+            style={[
+              hs.pill,
+              { flex: 1, paddingHorizontal: 4 },
+              period === p.code && hs.active,
+            ]}
+          >
+            <Text style={[hs.pillText, period === p.code && hs.white]}>
+              {p.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+      {pending ? (
+        <Text style={hs.muted}>선택한 기간의 기록을 불러오고 있어요.</Text>
+      ) : failed ? (
+        <Text accessibilityRole="alert" style={hs.error}>
+          선택한 기간의 기록을 불러오지 못했어요.
+        </Text>
+      ) : (
+        <Text style={hs.muted}>
+          {page?.period.from} – {page?.period.to}
+          {period === '90d' || period === '180d' || period === '1y'
+            ? ' · 구간별 기록일 평균'
+            : ''}
+        </Text>
+      )}
+    </>
+  );
+}
+
+// 작성자: 고수연 — 분을 [숫자, 단위] 쌍으로 쪼갠다. 한 시간이 안 되면 분만 남긴다.
+function hourParts(value: number | null): Array<[string, string]> {
+  if (value === null || !Number.isFinite(value)) return [['—', '']];
+  const total = Math.round(value);
+  const hours = Math.floor(total / 60);
+  const minutes = total % 60;
+  if (!hours) return [[String(minutes), '분']];
+  return minutes
+    ? [[String(hours), '시간'], [String(minutes), '분']]
+    : [[String(hours), '시간']];
+}
+
 function MetricCard({
   label,
   page,
@@ -286,6 +457,8 @@ function MetricCard({
   unit,
   color = '#20BA8A',
   today = false,
+  minutes = false,
+  factor = 1,
 }: {
   label: string;
   page?: HealthPage;
@@ -293,13 +466,22 @@ function MetricCard({
   unit: string;
   color?: string;
   today?: boolean;
+  // 작성자: 고수연 — 분으로 담긴 값을 '7시간 30분'으로 읽는다. 단위 글자는 따로 쓰지 않는다.
+  minutes?: boolean;
+  // 저장 단위와 보여줄 단위가 다를 때 곱한다. 물은 mL 로 담고 잔으로 읽는다.
+  factor?: number;
 }) {
   const record = latest(page, field);
-  const value = today
+  const raw = today
     ? sumToday(page, field)
     : record
     ? numeric(record, field)
     : null;
+  const value = raw === null ? null : raw * factor;
+  // 작성자: 고수연 — 오늘 잰 값이 아니면 괄호를 씌우고 그 아래에 기록일을 밝힌다.
+  // 오늘 값이면 날짜가 군더더기라 줄을 비운다. 대신 자리는 남겨 카드 높이를 고정한다.
+  // today 로 오늘치를 합산하는 카드(걸음·물)는 정의상 늘 오늘이라 여기에 걸리지 않는다.
+  const stale = !today && value !== null && record?.date !== koreanDay();
   const host = useRef<View>(null);
   const motion = useHealthMotion(label + field, host);
   return (
@@ -338,12 +520,29 @@ function MetricCard({
           flexWrap: 'wrap',
         }}
       >
-        <Text style={[hs.value, { color }]}>{format(value)}</Text>
-        <Text style={hs.metricUnit}>{unit}</Text>
+        {minutes ? (
+          // 작성자: 고수연 — '시간'과 '분'도 단위다. 다른 카드처럼 작고 흐리게 둔다.
+          // 괄호는 '7시간 30분' 전체를 감싸야 해서 앞뒤 조각에 나눠 붙인다.
+          hourParts(value).map(([amount, suffix], i, all) => (
+            <View key={suffix} style={hs.metricAmount}>
+              <Text style={[hs.value, { color }]}>
+                {stale && i === 0 ? '(' + amount : amount}
+              </Text>
+              <Text style={hs.metricUnit}>
+                {stale && i === all.length - 1 ? suffix + ')' : suffix}
+              </Text>
+            </View>
+          ))
+        ) : (
+          <>
+            <Text style={[hs.value, { color }]}>
+              {stale ? '(' + format(value) + ')' : format(value)}
+            </Text>
+            <Text style={hs.metricUnit}>{unit}</Text>
+          </>
+        )}
       </View>
-      <Text style={hs.metricDate}>
-        {today ? koreanDay() : record?.date ?? '기록 없음'}
-      </Text>
+      {stale && <Text style={hs.metricDate}>{record?.date}</Text>}
     </Animated.View>
   );
 }
@@ -368,6 +567,12 @@ export function HealthScreen({
     [syncError, setSyncError] = useState(''),
     [syncNotice, setSyncNotice] = useState('');
   const motionListeners = useRef(new Set<() => void>());
+  // 작성자: 고수연 — 화면을 바꾸면 스크롤을 맨 위로 올린다. 하나의 ScrollView 가 내용만
+  // 갈아끼우는 구조라, 그냥 두면 이전 화면에서 내려둔 위치가 그대로 남는다.
+  const scroller = useRef<ScrollView>(null);
+  useEffect(() => {
+    scroller.current?.scrollTo({ y: 0, animated: false });
+  }, [route, tab, entry]);
   const client = useQueryClient();
   const pages = useQueries({
     queries: metrics.map(metric => ({
@@ -382,6 +587,35 @@ export function HealthScreen({
   const data = Object.fromEntries(
     metrics.map((m, i) => [m, pages[i]?.data]),
   ) as Partial<Record<Metric, HealthPage>>;
+  // 작성자: 고수연 — 수치 카드는 오늘·최근 기록만 보여주므로 기간 선택과 무관해야 한다.
+  // 그래프용 조회와 분리해 7일로 고정한다. 같은 데이터를 쓰면 90일을 고르는 순간
+  // 카드의 '최근 기록'까지 그 구간 기준으로 바뀐다.
+  const cardPages = useQueries({
+    queries: metrics.map(metric => ({
+      queryKey: ['health', 'page', metric, CARD_PERIOD],
+      queryFn: ({ signal }: { signal: AbortSignal }) =>
+        healthApi.page(metric, CARD_PERIOD, signal),
+      enabled: active && !entry && route !== 'entries' && tab === 'life',
+      retry: false,
+      staleTime: 60000,
+    })),
+  });
+  const cards = Object.fromEntries(
+    metrics.map((m, i) => [m, cardPages[i]?.data]),
+  ) as Partial<Record<Metric, HealthPage>>;
+  // 작성자: 고수연 — 체중만 따로 조회한다. 체중은 매일 재는 값이 아니라 위의 생체 7일
+  // 조회에는 한 건도 안 들어 있는 날이 많다. bioType 을 주면 서버가 그 종류의 마지막
+  // 기록일을 기준일로 잡아 주므로, 한 달 전에 잰 몸무게도 창 안에 들어온다.
+  const weightPage = useQuery({
+    queryKey: ['health', 'page', 'bio', CARD_PERIOD, 'body_composition'],
+    queryFn: ({ signal }: { signal: AbortSignal }) =>
+      healthApi.page('bio', CARD_PERIOD, signal, {
+        bioType: 'body_composition',
+      }),
+    enabled: active && !entry && route === 'bio' && tab === 'life',
+    retry: false,
+    staleTime: 60000,
+  });
   const goBack = () => {
     if (entry) setEntry(null);
     else if (route !== 'home') setRoute('home');
@@ -473,6 +707,7 @@ export function HealthScreen({
   return (
     <HealthMotionContext.Provider value={motionListeners.current}>
       <ScrollView
+        ref={scroller}
         onScroll={() => motionListeners.current.forEach(reveal => reveal())}
         scrollEventThrottle={80}
         style={hs.root}
@@ -596,7 +831,8 @@ export function HealthScreen({
                       width: 44,
                       height: 44,
                       borderRadius: 14,
-                      backgroundColor: '#DFF8EF',
+                      // 항목 색을 12%로 옅혀 깐다. 아이콘 선과 같은 계열이 된다.
+                      backgroundColor: e.color + '1F',
                       alignItems: 'center',
                       justifyContent: 'center',
                     }}
@@ -631,7 +867,9 @@ export function HealthScreen({
         ) : (
           <>
             <AnalysisCard category={category} active={active} />
-            {pages.some(p => p.isError) && (
+            {/* 작성자: 고수연 — 여기 알림은 수치 카드용 조회만 다룬다. 기간 버튼이 부르는
+                그래프용 조회의 상태는 버튼 아래에서 알린다(아래 pagesStatus). */}
+            {cardPages.some(p => p.isError) && (
               <View style={hs.card}>
                 <Text accessibilityRole="alert" style={hs.error}>
                   일부 건강 기록을 불러오지 못했어요.
@@ -645,63 +883,48 @@ export function HealthScreen({
                 </Pressable>
               </View>
             )}
-            {pages.some(p => p.isPending) && (
+            {cardPages.some(p => p.isPending) && (
               <Text style={hs.muted}>건강 기록을 불러오고 있어요.</Text>
             )}
             {route === 'home' ? (
               <>
                 <Text style={hs.section}>오늘의 건강 상태</Text>
-                <View style={[hs.row, { flexWrap: 'wrap' }]}>
+                <View style={[hs.metricRow, { flexWrap: 'wrap' }]}>
                   <MetricCard
-                    label="수면"
-                    page={data.sleep}
+                    label="수면시간"
+                    page={cards.sleep}
                     field="total_sleep_minutes"
                     unit="분"
+                    minutes
                     color="#8057E0"
                   />
                   <MetricCard
-                    label="심박"
-                    page={data.bio}
+                    label="심박수"
+                    page={cards.bio}
                     field="heart_rate_bpm"
                     unit="bpm"
                     color="#F04066"
                   />
                 </View>
-                <View style={hs.row}>
+                <View style={hs.metricRow}>
                   <MetricCard
-                    label="오늘 활동"
-                    page={data.activity}
+                    label="걸음 수"
+                    page={cards.activity}
                     field="steps"
                     unit="걸음"
                     today
                   />
                   <MetricCard
-                    label="오늘 수분"
-                    page={data.water}
+                    label="물 섭취"
+                    page={cards.water}
                     field="amount_ml"
-                    unit="mL"
+                    unit="잔"
+                    factor={1 / 250}
                     color="#4285F4"
                     today
                   />
                 </View>
-                <View style={[hs.card, { minHeight: 200 }]}>
-                  <Text style={hs.section}>전체 건강 흐름</Text>
-                  <Text style={hs.muted}>수면·활동·영양 종합 점수</Text>
-                  <View
-                    style={{
-                      flex: 1,
-                      justifyContent: 'center',
-                      minHeight: 110,
-                    }}
-                  >
-                    <Text style={[hs.text, { textAlign: 'center' }]}>
-                      생활습관 점수 기준을 준비하고 있어요.
-                    </Text>
-                    <Text style={[hs.muted, { textAlign: 'center' }]}>
-                      영역별 기록에서 실제 수치와 변화를 확인할 수 있어요.
-                    </Text>
-                  </View>
-                </View>
+                <ScoreCard />
                 <Text style={hs.section}>영역별 변화</Text>
                 {domains.map(d => (
                   <Pressable
@@ -710,11 +933,9 @@ export function HealthScreen({
                     onPress={() => setRoute(d.id)}
                     style={[hs.card, hs.row, { minHeight: 72 }]}
                   >
-                    <HealthIcon
-                      xml={healthIcons[d.icon]}
-                      width={28}
-                      height={28}
-                    />
+                    {/* 작성자: 고수연 — 아이콘 색을 영역 색에서 받는다. XML 에 색이 박힌
+                        healthIcons 와 달리 여기 한 곳만 고치면 된다. */}
+                    <MetricIcon field={d.icon} color={d.color} />
                     <View style={hs.spacer}>
                       <Text style={hs.section}>{d.title}</Text>
                       <Text style={hs.muted}>{d.description}</Text>
@@ -725,44 +946,36 @@ export function HealthScreen({
               </>
             ) : (
               <>
-                <View style={hs.row}>
-                  {periods.map(p => (
-                    <Pressable
-                      accessibilityRole="radio"
-                      accessibilityState={{ checked: period === p.code }}
-                      key={p.code}
-                      onPress={() => setPeriod(p.code)}
-                      style={[
-                        hs.pill,
-                        { flex: 1, paddingHorizontal: 4 },
-                        period === p.code && hs.active,
-                      ]}
-                    >
-                      <Text
-                        style={[hs.pillText, period === p.code && hs.white]}
-                      >
-                        {p.label}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-                <Text style={hs.muted}>
-                  {data[route as Metric]?.period.from} –{' '}
-                  {data[route as Metric]?.period.to}
-                  {period === '90d' || period === '180d' || period === '1y'
-                    ? ' · 구간별 기록일 평균'
-                    : ''}
-                </Text>
                 {data[route as Metric]?.dataTruncated ? (
-                  <Text style={hs.error}>
-                    기록이 많아 전체 그래프를 표시하지 못했어요. 짧은 기간을
-                    선택해 주세요.
-                  </Text>
+                  <>
+                    <PeriodPicker
+                      period={period}
+                      setPeriod={setPeriod}
+                      page={data[route as Metric]}
+                      pending={pages.some(q => q.isPending)}
+                      failed={pages.some(q => q.isError)}
+                    />
+                    <Text style={hs.error}>
+                      기록이 많아 전체 그래프를 표시하지 못했어요. 짧은 기간을
+                      선택해 주세요.
+                    </Text>
+                  </>
                 ) : (
                   <DetailGraphs
                     route={route as 'bio' | 'activity' | 'nutrition' | 'sleep'}
                     data={data}
+                    cards={cards}
+                    weight={weightPage.data}
                     onWater={() => setEntry('water')}
+                    periodPicker={
+                      <PeriodPicker
+                        period={period}
+                        setPeriod={setPeriod}
+                        page={data[route as Metric]}
+                        pending={pages.some(q => q.isPending)}
+                        failed={pages.some(q => q.isError)}
+                      />
+                    }
                   />
                 )}
                 <MissionCard category={category} />
@@ -777,29 +990,41 @@ export function HealthScreen({
 function DetailGraphs({
   route,
   data,
+  cards,
+  weight,
   onWater,
+  periodPicker,
 }: {
   route: 'bio' | 'activity' | 'nutrition' | 'sleep';
+  // 그래프용. 선택한 기간을 따른다.
   data: Partial<Record<Metric, HealthPage>>;
+  // 수치 카드용. 기간과 무관하게 고정 구간을 본다.
+  cards: Partial<Record<Metric, HealthPage>>;
+  // 체중 카드용. 마지막으로 잰 날을 기준으로 받아 온 생체 기록이다.
+  weight?: HealthPage;
   onWater: () => void;
+  periodPicker: React.ReactNode;
 }) {
   if (route === 'bio')
     return (
       <>
-        <View style={hs.row}>
+        <View style={hs.metricRow}>
           <MetricCard
-            label="심박"
-            page={data.bio}
+            label="심박수"
+            page={cards.bio}
             field="heart_rate_bpm"
             unit="bpm"
+            color="#F04066"
           />
           <MetricCard
             label="체중"
-            page={data.bio}
+            page={weight ?? cards.bio}
             field="weight_kg"
             unit="kg"
+            color="#F17B4E"
           />
         </View>
+        {periodPicker}
         <HealthChart
           period={data.bio?.period}
           title="체중 변화"
@@ -834,20 +1059,22 @@ function DetailGraphs({
   if (route === 'activity')
     return (
       <>
-        <View style={hs.row}>
+        <View style={hs.metricRow}>
           <MetricCard
-            label="걸음"
-            page={data.activity}
+            label="걸음 수"
+            page={cards.activity}
             field="steps"
             unit="걸음"
           />
           <MetricCard
             label="운동 열량"
-            page={data.exercise}
+            page={cards.exercise}
             field="calories_kcal"
             unit="kcal"
+            color="#F17B4E"
           />
         </View>
+        {periodPicker}
         <HealthChart
           period={data.activity?.period}
           title="걸음 추이"
@@ -925,6 +1152,7 @@ function DetailGraphs({
             <Text style={hs.muted}>오늘의 식사 기록이 없어요.</Text>
           )}
         </View>
+        {periodPicker}
         <HealthChart
           period={data.nutrition?.period}
           title="섭취 칼로리 추이"
@@ -964,33 +1192,31 @@ function DetailGraphs({
     );
   return (
     <>
-      <View style={hs.row}>
+      <View style={hs.metricRow}>
         <MetricCard
-          label="최근 총 수면"
-          page={data.sleep}
+          label="수면시간"
+          page={cards.sleep}
           field="total_sleep_minutes"
           unit="분"
+          minutes
           color="#8057E0"
         />
         <MetricCard
           label="삼성 수면점수"
-          page={data.sleep}
+          page={cards.sleep}
           field="sleep_score"
           unit="점"
           color="#8057E0"
         />
       </View>
+      {periodPicker}
+      {/* 작성자: 고수연 — 막대 높이가 곧 그날 수면시간이라 따로 두지 않고 하나로 합쳤다.
+          단계가 없는 밤은 총 수면시간이 한 칸으로 그려진다. */}
       <HealthChart
         period={data.sleep?.period}
-        title="수면 단계"
+        title="수면시간"
         kind="stack"
         series={sleepStages(data.sleep)}
-      />
-      <HealthChart
-        period={data.sleep?.period}
-        title="수면시간 추이"
-        kind="bar"
-        series={series(data.sleep, ['total_sleep_minutes'], 1 / 60, '시간')}
       />
       <HealthChart
         period={data.sleep?.period}
