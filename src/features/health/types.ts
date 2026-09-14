@@ -81,3 +81,27 @@ export type EntryKind =
   | 'body_composition'
   | 'water'
   | 'blood_glucose';
+
+// 작성자: 고수연 — GET /api/health/score 응답. 백엔드 LifestyleScore.Report와 같은 모양이다.
+export type ScoreComponent = {
+  score: number | null;
+  recordedDays: number;
+  requiredDays: number;
+};
+export type ScoreDay = {
+  date: string;
+  // 기록이 모자라면 null이다. 그때 reasons에 이유가 담긴다.
+  score: number | null;
+  sleep: ScoreComponent;
+  activity: ScoreComponent;
+  bmiScore: number | null;
+  bmiDate: string | null;
+  reasons: string[];
+};
+export type ScoreReport = {
+  policyVersion: string;
+  timezone: string;
+  period: { code: string; from: string; to: string; aggregation: string };
+  latest: ScoreDay;
+  points: ScoreDay[];
+};
