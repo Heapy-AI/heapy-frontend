@@ -48,7 +48,7 @@ const domains = [
     id: 'bio',
     title: '생체 기록',
     description: '심박수 · 혈압 · 체중 · BMI',
-    icon: 'bio',
+    icon: 'heart_rate_bpm',
     color: '#F04066',
   },
   {
@@ -73,15 +73,42 @@ const domains = [
     color: '#8057E0',
   },
 ] as const;
-const entries: { id: EntryKind; title: string; description: string }[] = [
-  { id: 'sleep', title: '수면', description: '취침·기상 시각과 수면시간' },
-  { id: 'blood_pressure', title: '혈압', description: '수축기·이완기·맥박' },
-  { id: 'body_composition', title: '체성분', description: '체중·키·BMI' },
-  { id: 'water', title: '물 섭취', description: '섭취 시각과 물의 양' },
+// 작성자: 고수연 — color 는 healthIcons 의 선 색과 같은 값이다. 아이콘 타일 배경이 이 색을 따른다.
+const entries: {
+  id: EntryKind;
+  title: string;
+  description: string;
+  color: string;
+}[] = [
+  {
+    id: 'sleep',
+    title: '수면',
+    description: '취침·기상 시각과 수면시간',
+    color: '#8057E0',
+  },
+  {
+    id: 'blood_pressure',
+    title: '혈압',
+    description: '수축기·이완기·맥박',
+    color: '#F04066',
+  },
+  {
+    id: 'body_composition',
+    title: '체성분',
+    description: '체중·키·BMI',
+    color: '#F17B4E',
+  },
+  {
+    id: 'water',
+    title: '물 섭취',
+    description: '섭취 시각과 물의 양',
+    color: '#4285F4',
+  },
   {
     id: 'blood_glucose',
     title: '혈당',
     description: '공복 여부·수치·인슐린 농도',
+    color: '#F17B4E',
   },
 ];
 // 작성자: 고수연 — 수치 카드가 쓰는 고정 조회 기간. 오늘·최근 기록만 필요해 짧게 잡는다.
@@ -782,7 +809,8 @@ export function HealthScreen({
                       width: 44,
                       height: 44,
                       borderRadius: 14,
-                      backgroundColor: '#DFF8EF',
+                      // 항목 색을 12%로 옅혀 깐다. 아이콘 선과 같은 계열이 된다.
+                      backgroundColor: e.color + '1F',
                       alignItems: 'center',
                       justifyContent: 'center',
                     }}
@@ -883,11 +911,9 @@ export function HealthScreen({
                     onPress={() => setRoute(d.id)}
                     style={[hs.card, hs.row, { minHeight: 72 }]}
                   >
-                    <HealthIcon
-                      xml={healthIcons[d.icon]}
-                      width={28}
-                      height={28}
-                    />
+                    {/* 작성자: 고수연 — 아이콘 색을 영역 색에서 받는다. XML 에 색이 박힌
+                        healthIcons 와 달리 여기 한 곳만 고치면 된다. */}
+                    <MetricIcon field={d.icon} color={d.color} />
                     <View style={hs.spacer}>
                       <Text style={hs.section}>{d.title}</Text>
                       <Text style={hs.muted}>{d.description}</Text>
