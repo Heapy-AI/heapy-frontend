@@ -69,6 +69,12 @@ export const hs = StyleSheet.create({
     textAlign: 'right',
   },
   metricUnit: { fontSize: 11, color: '#93A6A3', fontWeight: '500' },
+  // 작성자: 고수연 — 숫자와 단위를 한 덩어리로 묶는다. '7시간 30분'이 두 쌍으로 붙는다.
+  metricAmount: {
+    flexDirection: 'row' as const,
+    alignItems: 'baseline' as const,
+    gap: 2,
+  },
   metricDate: { fontSize: 9, color: '#A0B0AD', letterSpacing: 0.2 },
   syncNotice: {
     fontSize: 11,

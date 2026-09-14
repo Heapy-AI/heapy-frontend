@@ -47,7 +47,7 @@ const domains = [
   {
     id: 'bio',
     title: '생체 기록',
-    description: '심박 · 혈압 · 체중 · BMI',
+    description: '심박수 · 혈압 · 체중 · BMI',
     icon: 'bio',
     color: '#20BA8A',
   },
@@ -67,7 +67,7 @@ const domains = [
   },
   {
     id: 'sleep',
-    title: '수면',
+    title: '수면 기록',
     description: '수면시간 · 단계 · 규칙성',
     icon: 'sleep',
     color: '#8057E0',
@@ -355,6 +355,18 @@ function MissionCard({ category }: { category: Category }) {
     </View>
   );
 }
+// 작성자: 고수연 — 분을 [숫자, 단위] 쌍으로 쪼갠다. 한 시간이 안 되면 분만 남긴다.
+function hourParts(value: number | null): Array<[string, string]> {
+  if (value === null || !Number.isFinite(value)) return [['—', '']];
+  const total = Math.round(value);
+  const hours = Math.floor(total / 60);
+  const minutes = total % 60;
+  if (!hours) return [[String(minutes), '분']];
+  return minutes
+    ? [[String(hours), '시간'], [String(minutes), '분']]
+    : [[String(hours), '시간']];
+}
+
 function MetricCard({
   label,
   page,
@@ -362,6 +374,8 @@ function MetricCard({
   unit,
   color = '#20BA8A',
   today = false,
+  minutes = false,
+  factor = 1,
 }: {
   label: string;
   page?: HealthPage;
@@ -369,13 +383,18 @@ function MetricCard({
   unit: string;
   color?: string;
   today?: boolean;
+  // 작성자: 고수연 — 분으로 담긴 값을 '7시간 30분'으로 읽는다. 단위 글자는 따로 쓰지 않는다.
+  minutes?: boolean;
+  // 저장 단위와 보여줄 단위가 다를 때 곱한다. 물은 mL 로 담고 잔으로 읽는다.
+  factor?: number;
 }) {
   const record = latest(page, field);
-  const value = today
+  const raw = today
     ? sumToday(page, field)
     : record
     ? numeric(record, field)
     : null;
+  const value = raw === null ? null : raw * factor;
   const host = useRef<View>(null);
   const motion = useHealthMotion(label + field, host);
   return (
@@ -414,8 +433,20 @@ function MetricCard({
           flexWrap: 'wrap',
         }}
       >
-        <Text style={[hs.value, { color }]}>{format(value)}</Text>
-        <Text style={hs.metricUnit}>{unit}</Text>
+        {minutes ? (
+          // 작성자: 고수연 — '시간'과 '분'도 단위다. 다른 카드처럼 작고 흐리게 둔다.
+          hourParts(value).map(([amount, suffix]) => (
+            <View key={suffix} style={hs.metricAmount}>
+              <Text style={[hs.value, { color }]}>{amount}</Text>
+              <Text style={hs.metricUnit}>{suffix}</Text>
+            </View>
+          ))
+        ) : (
+          <>
+            <Text style={[hs.value, { color }]}>{format(value)}</Text>
+            <Text style={hs.metricUnit}>{unit}</Text>
+          </>
+        )}
       </View>
       <Text style={hs.metricDate}>
         {today ? koreanDay() : record?.date ?? '기록 없음'}
@@ -729,14 +760,15 @@ export function HealthScreen({
                 <Text style={hs.section}>오늘의 건강 상태</Text>
                 <View style={[hs.row, { flexWrap: 'wrap' }]}>
                   <MetricCard
-                    label="수면"
+                    label="수면시간"
                     page={data.sleep}
                     field="total_sleep_minutes"
                     unit="분"
+                    minutes
                     color="#8057E0"
                   />
                   <MetricCard
-                    label="심박"
+                    label="심박수"
                     page={data.bio}
                     field="heart_rate_bpm"
                     unit="bpm"
@@ -745,17 +777,18 @@ export function HealthScreen({
                 </View>
                 <View style={hs.row}>
                   <MetricCard
-                    label="오늘 활동"
+                    label="걸음 수"
                     page={data.activity}
                     field="steps"
                     unit="걸음"
                     today
                   />
                   <MetricCard
-                    label="오늘 수분"
+                    label="물 섭취"
                     page={data.water}
                     field="amount_ml"
-                    unit="mL"
+                    unit="잔"
+                    factor={1 / 250}
                     color="#4285F4"
                     today
                   />
@@ -847,7 +880,7 @@ function DetailGraphs({
       <>
         <View style={hs.row}>
           <MetricCard
-            label="심박"
+            label="심박수"
             page={data.bio}
             field="heart_rate_bpm"
             unit="bpm"
@@ -895,7 +928,7 @@ function DetailGraphs({
       <>
         <View style={hs.row}>
           <MetricCard
-            label="걸음"
+            label="걸음 수"
             page={data.activity}
             field="steps"
             unit="걸음"
@@ -1025,10 +1058,11 @@ function DetailGraphs({
     <>
       <View style={hs.row}>
         <MetricCard
-          label="최근 총 수면"
+          label="수면시간"
           page={data.sleep}
           field="total_sleep_minutes"
           unit="분"
+          minutes
           color="#8057E0"
         />
         <MetricCard
@@ -1039,17 +1073,13 @@ function DetailGraphs({
           color="#8057E0"
         />
       </View>
+      {/* 작성자: 고수연 — 막대 높이가 곧 그날 수면시간이라 따로 두지 않고 하나로 합쳤다.
+          단계가 없는 밤은 총 수면시간이 한 칸으로 그려진다. */}
       <HealthChart
         period={data.sleep?.period}
-        title="수면 단계"
+        title="수면시간"
         kind="stack"
         series={sleepStages(data.sleep)}
-      />
-      <HealthChart
-        period={data.sleep?.period}
-        title="수면시간 추이"
-        kind="bar"
-        series={series(data.sleep, ['total_sleep_minutes'], 1 / 60, '시간')}
       />
       <HealthChart
         period={data.sleep?.period}

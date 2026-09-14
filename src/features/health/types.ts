@@ -37,6 +37,10 @@ export type Series = {
   unit: string;
   dailyAggregation: string;
   points: Point[];
+  // 작성자: 고수연 — 계열이 직접 색을 정할 때 쓴다. 없으면 차트 기본 팔레트를 따른다.
+  color?: string;
+  // 범례에서만 감춘다. 말풍선과 표에는 이름이 그대로 나온다.
+  legendHidden?: boolean;
 };
 export type HealthPage = {
   metric: Metric;
