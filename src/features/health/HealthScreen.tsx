@@ -49,7 +49,7 @@ const domains = [
     title: '생체 기록',
     description: '심박수 · 혈압 · 체중 · BMI',
     icon: 'bio',
-    color: '#20BA8A',
+    color: '#F04066',
   },
   {
     id: 'activity',
@@ -363,10 +363,14 @@ function PeriodPicker({
   period,
   setPeriod,
   page,
+  pending = false,
+  failed = false,
 }: {
   period: PeriodCode;
   setPeriod: (code: PeriodCode) => void;
   page?: HealthPage;
+  pending?: boolean;
+  failed?: boolean;
 }) {
   return (
     <>
@@ -389,12 +393,20 @@ function PeriodPicker({
           </Pressable>
         ))}
       </View>
-      <Text style={hs.muted}>
-        {page?.period.from} – {page?.period.to}
-        {period === '90d' || period === '180d' || period === '1y'
-          ? ' · 구간별 기록일 평균'
-          : ''}
-      </Text>
+      {pending ? (
+        <Text style={hs.muted}>선택한 기간의 기록을 불러오고 있어요.</Text>
+      ) : failed ? (
+        <Text accessibilityRole="alert" style={hs.error}>
+          선택한 기간의 기록을 불러오지 못했어요.
+        </Text>
+      ) : (
+        <Text style={hs.muted}>
+          {page?.period.from} – {page?.period.to}
+          {period === '90d' || period === '180d' || period === '1y'
+            ? ' · 구간별 기록일 평균'
+            : ''}
+        </Text>
+      )}
     </>
   );
 }
@@ -805,7 +817,9 @@ export function HealthScreen({
         ) : (
           <>
             <AnalysisCard category={category} active={active} />
-            {pages.some(p => p.isError) && (
+            {/* 작성자: 고수연 — 여기 알림은 수치 카드용 조회만 다룬다. 기간 버튼이 부르는
+                그래프용 조회의 상태는 버튼 아래에서 알린다(아래 pagesStatus). */}
+            {cardPages.some(p => p.isError) && (
               <View style={hs.card}>
                 <Text accessibilityRole="alert" style={hs.error}>
                   일부 건강 기록을 불러오지 못했어요.
@@ -819,7 +833,7 @@ export function HealthScreen({
                 </Pressable>
               </View>
             )}
-            {pages.some(p => p.isPending) && (
+            {cardPages.some(p => p.isPending) && (
               <Text style={hs.muted}>건강 기록을 불러오고 있어요.</Text>
             )}
             {route === 'home' ? (
@@ -890,6 +904,8 @@ export function HealthScreen({
                       period={period}
                       setPeriod={setPeriod}
                       page={data[route as Metric]}
+                      pending={pages.some(q => q.isPending)}
+                      failed={pages.some(q => q.isError)}
                     />
                     <Text style={hs.error}>
                       기록이 많아 전체 그래프를 표시하지 못했어요. 짧은 기간을
@@ -907,6 +923,8 @@ export function HealthScreen({
                         period={period}
                         setPeriod={setPeriod}
                         page={data[route as Metric]}
+                        pending={pages.some(q => q.isPending)}
+                        failed={pages.some(q => q.isError)}
                       />
                     }
                   />
@@ -944,12 +962,14 @@ function DetailGraphs({
             page={cards.bio}
             field="heart_rate_bpm"
             unit="bpm"
+            color="#F04066"
           />
           <MetricCard
             label="체중"
             page={cards.bio}
             field="weight_kg"
             unit="kg"
+            color="#F17B4E"
           />
         </View>
         {periodPicker}
@@ -999,6 +1019,7 @@ function DetailGraphs({
             page={cards.exercise}
             field="calories_kcal"
             unit="kcal"
+            color="#F17B4E"
           />
         </View>
         {periodPicker}
