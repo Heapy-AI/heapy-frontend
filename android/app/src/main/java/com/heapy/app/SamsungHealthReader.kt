@@ -137,8 +137,8 @@ class SamsungHealthReader(private val store: HealthDataStore) {
                 val sessions = requireNotNull(point.getValue(DataType.ExerciseType.SESSIONS))
                 require(sessions.isNotEmpty())
                 data.putString("startAt", point.startTime.toString()); data.putString("endAt", point.endTime.toString())
-                data.putString("exerciseType", point.getValue(DataType.ExerciseType.CUSTOM_TITLE)?.takeIf { it.isNotBlank() }
-                    ?: point.getValue(DataType.ExerciseType.EXERCISE_TYPE)?.name ?: "기타 운동")
+                data.putString("exerciseType", point.getValue(DataType.ExerciseType.EXERCISE_TYPE)?.name
+                    ?: point.getValue(DataType.ExerciseType.CUSTOM_TITLE)?.takeIf { it.isNotBlank() } ?: "기타 운동")
                 data.number("durationSeconds", sessions.sumOf { it.duration.seconds }.toDouble())
                 data.number("caloriesKcal", sessions.sumOf { it.calories.toDouble() })
                 if (sessions.all { it.distance != null }) data.number("distanceM", sessions.sumOf { it.distance!!.toDouble() })

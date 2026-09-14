@@ -1,4 +1,5 @@
 // 작성자: 김진우 — AI 브리핑을 제외한 홈 카드를 실제 서버 기록과 연결한다.
+import { MissionSummaryCard } from '../missions/MissionSummaryCard';
 import { NotificationBell } from '../notifications/NotificationBell';
 import { HomeMedicationCard } from '../medication/HomeMedicationCard';
 import React, { useState } from 'react';
@@ -56,7 +57,7 @@ type Props = {
   onNotifications: () => void;
   onDetail: (id: string) => void;
   onChat: () => void;
-  onMissions?: () => void;
+  onMissions?: (id?: string) => void;
   onHealth?: () => void;
 };
 const descriptions: Record<ModuleId, string> = {
@@ -494,49 +495,11 @@ export function HomeDashboard(_props: Props) {
       );
     if (id === 'mission')
       return (
-        <LinearGradient key={id} colors={['#EAFFF0', '#FFFFFF']} style={s.card}>
-          <View style={s.row}>
-            <HomeCardHeading
-              icon="mission"
-              title="오늘의 미션"
-              color="#28AB78"
-              tint="#D8FAE6"
-            />
-            <Text style={s.purple}>
-              {home.data?.missions?.filter(m => m.status === 'completed')
-                .length ?? 0}{' '}
-              / {home.data?.missions?.length ?? 0} 완료
-            </Text>
-          </View>
-          {home.data?.missions?.length ? (
-            home.data.missions.map(mission => (
-              <View key={mission.userMissionId} style={s.missionItem}>
-                <Text style={s.rowTitle}>{mission.title}</Text>
-                {!!mission.description && (
-                  <Text style={s.small}>{mission.description}</Text>
-                )}
-                <Text style={s.purple}>
-                  {{
-                    suggested: '추천',
-                    accepted: '수락함',
-                    in_progress: '진행 중',
-                    completed: '완료',
-                    failed: '기간 종료',
-                  }[mission.status] ?? mission.status}
-                </Text>
-              </View>
-            ))
-          ) : (
-            <Text style={s.small}>오늘 등록된 미션이 없어요.</Text>
-          )}
-          <Pressable
-            accessibilityRole="button"
-            onPress={_props.onMissions}
-            style={s.miniButton}
-          >
-            <Text style={s.whiteSmall}>미션 보기</Text>
-          </Pressable>
-        </LinearGradient>
+        <MissionSummaryCard
+          key={id}
+          active={_props.active !== false}
+          onOpen={_props.onMissions}
+        />
       );
     if (id === 'weekly')
       return (

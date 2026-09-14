@@ -19,6 +19,8 @@ import { colors } from '../../shared/theme/tokens';
 import { HomeDashboard } from './HomeDashboard';
 import { ChatScreen } from '../chat/ChatScreen';
 import { MyScreen } from '../my/MyScreen';
+import { MissionScreen } from '../missions/MissionScreen';
+import { useAutomaticSamsungSync } from '../dataConnection/useAutomaticSamsungSync';
 import { HealthScreen } from '../health/HealthScreen';
 import { ScreenTransition } from '../../shared/components/ScreenTransition';
 import { AmbientEffect } from '../../shared/components/AmbientEffect';
@@ -50,6 +52,7 @@ type TabId = (typeof tabs)[number]['id'];
 export function HomeScreen({
   navigation,
 }: NativeStackScreenProps<RootStackParamList, 'Home'>) {
+  useAutomaticSamsungSync();
   const insets = useSafeAreaInsets();
   const chatbotPress = usePressFeedback(0.92);
   const [chatButtonSize, setChatButtonSize] = useState(68);
@@ -87,6 +90,8 @@ export function HomeScreen({
   }, []);
   const [homeEditing, setHomeEditing] = useState(false);
   const [healthEditing, setHealthEditing] = useState(false);
+  const [missionEditing, setMissionEditing] = useState(false);
+  const [missionId, setMissionId] = useState<string>();
   const [selected, setSelected] = useState<TabId>('home');
   const [tabResets, setTabResets] = useState({
     home: 0,
@@ -96,6 +101,7 @@ export function HomeScreen({
   });
   // 작성자: 김진우 — 챗봇을 제외한 탭 누르기는 항상 해당 탭의 처음으로 돌아간다.
   const selectTab = (tab: TabId) => {
+    if (tab === 'missions') setMissionId(undefined);
     if (tab !== 'chatbot') {
       Keyboard.dismiss();
       setTabResets(value => ({ ...value, [tab]: value[tab] + 1 }));
@@ -111,7 +117,8 @@ export function HomeScreen({
         if (
           !navigation.isFocused() ||
           selected === 'home' ||
-          selected === 'health'
+          selected === 'health' ||
+          selected === 'missions'
         )
           return false;
         setSelected('home');
@@ -152,7 +159,10 @@ export function HomeScreen({
                 navigation.navigate('CheckupDetail', { recordId })
               }
               onChat={() => setSelected('chatbot')}
-              onMissions={() => selectTab('missions')}
+              onMissions={id => {
+                selectTab('missions');
+                setMissionId(id);
+              }}
               onHealth={() => selectTab('health')}
             />
           </View>
@@ -164,6 +174,10 @@ export function HomeScreen({
               active={focused}
               onNestedChange={setHealthEditing}
               onExit={() => setSelected('home')}
+              onMissions={id => {
+                selectTab('missions');
+                setMissionId(id);
+              }}
               onRegister={() => navigation.navigate('CheckupRegistration')}
             />
           ) : selected === 'my' ? (
@@ -173,11 +187,14 @@ export function HomeScreen({
               active={focused}
             />
           ) : (
-            <View key={tabResets.missions} style={styles.placeholder}>
-              <Text accessibilityRole="header" style={styles.title}>
-                {current.title}
-              </Text>
-            </View>
+            <MissionScreen
+              key={tabResets.missions}
+              active={focused}
+              initialMissionId={missionId}
+              onCheckup={() => navigation.navigate('CheckupRegistration')}
+              onExit={() => setSelected('home')}
+              onNestedChange={setMissionEditing}
+            />
           )}
         </ScreenTransition>
         <View
@@ -185,6 +202,7 @@ export function HomeScreen({
             styles.tabBar,
             ((selected === 'home' && homeEditing) ||
               (selected === 'health' && healthEditing) ||
+              (selected === 'missions' && missionEditing) ||
               (selected === 'chatbot' && keyboardVisible)) && {
               display: 'none',
             },

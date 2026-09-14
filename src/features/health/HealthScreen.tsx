@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  AppState,
   BackHandler,
   Platform,
   Pressable,
@@ -17,11 +16,9 @@ import { AmbientEffect } from '../../shared/components/AmbientEffect';
 import { MetricIcon } from './MetricIcon';
 import { HealthMotionContext, useHealthMotion } from './useHealthMotion';
 import { refreshSamsungConnection } from './healthRefresh';
-import { syncSamsungHealth } from '../dataConnection/samsungSync';
 import { HealthIcon } from './HealthIcon';
-import { apiClient } from '../../shared/api/client';
-import { createIdempotencyKey } from '../../shared/utils/idempotency';
-import { ConfirmModal } from '../../shared/components/ConfirmModal';
+import { MissionRecommendationCard } from '../missions/MissionRecommendationCard';
+import { MissionSummaryCard } from '../missions/MissionSummaryCard';
 import { healthApi } from './healthApi';
 import { LifestyleScoreCard } from './LifestyleScoreCard';
 import { HealthRequestState } from './HealthRequestState';
@@ -210,89 +207,6 @@ function AnalysisCard({
     </LinearGradient>
   );
 }
-function MissionCard({ category }: { category: Category }) {
-  const client = useQueryClient(),
-    [confirm, setConfirm] = useState(false),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState(''),
-    [key] = useState(createIdempotencyKey);
-  const query = useQuery({
-    queryKey: ['health', 'missions', category],
-    queryFn: async ({ signal }) =>
-      (
-        await apiClient.get<{
-          items: {
-            userMissionId: string;
-            title: string;
-            description: string;
-          }[];
-        }>('/api/missions/suggestions', { signal, params: { category } })
-      ).data,
-    retry: false,
-  });
-  const mission = query.data?.items?.[0];
-  return (
-    <View
-      style={[hs.card, { backgroundColor: '#E0F8EF', borderColor: '#20BA8A' }]}
-    >
-      <Text style={hs.pillText}>HEAPY 추천 미션</Text>
-      <View style={hs.between}>
-        <View style={hs.spacer}>
-          <Text style={hs.section}>
-            {mission?.title ||
-              (query.isError
-                ? '추천 미션을 불러오지 못했어요.'
-                : query.isPending
-                ? '미션을 불러오고 있어요.'
-                : '지금은 추천 미션이 없어요.')}
-          </Text>
-          {!!mission?.description && (
-            <Text style={hs.muted}>{mission.description}</Text>
-          )}
-        </View>
-        {mission && (
-          <Pressable
-            onPress={() => setConfirm(true)}
-            style={[hs.pill, hs.active]}
-          >
-            <Text style={[hs.pillText, hs.white]}>추가하기</Text>
-          </Pressable>
-        )}
-      </View>
-      <ConfirmModal
-        visible={confirm}
-        title="오늘의 미션에 추가할까요?"
-        description={mission?.title ?? ''}
-        confirmLabel="추가하기"
-        pending={busy}
-        error={error}
-        onCancel={() => setConfirm(false)}
-        onConfirm={async () => {
-          if (!mission || busy) return;
-          setBusy(true);
-          setError('');
-          try {
-            await apiClient.post(
-              `/api/missions/${encodeURIComponent(
-                mission.userMissionId,
-              )}/accept`,
-              {},
-              { headers: { 'Idempotency-Key': key } },
-            );
-            setConfirm(false);
-            await client.invalidateQueries({
-              queryKey: ['health', 'missions'],
-            });
-          } catch (e) {
-            setError(e instanceof Error ? e.message : '추가하지 못했어요.');
-          } finally {
-            setBusy(false);
-          }
-        }}
-      />
-    </View>
-  );
-}
 function MetricCard({
   label,
   page,
@@ -374,11 +288,13 @@ export function HealthScreen({
   onNestedChange,
   onExit,
   onRegister,
+  onMissions,
 }: {
   active: boolean;
   onNestedChange: (nested: boolean) => void;
   onExit: () => void;
   onRegister: () => void;
+  onMissions?: (id?: string) => void;
 }) {
   const [route, setRoute] = useState<Route>('home'),
     [tab, setTab] = useState<'life' | 'checkup'>('life'),
@@ -448,38 +364,6 @@ export function HealthScreen({
       setRefreshing(false);
     }
   };
-  useEffect(() => {
-    if (!active || isCheckup || entry || route === 'entries') return;
-    let mounted = true;
-    const automatic = async () => {
-      if (AppState.currentState && AppState.currentState !== 'active') return;
-      try {
-        await syncSamsungHealth({ automatic: true });
-        if (mounted) setSyncError('');
-        await client.invalidateQueries({ queryKey: ['health'] });
-        await client.invalidateQueries({ queryKey: ['health-connections'] });
-      } catch (error) {
-        if (mounted)
-          setSyncError(
-            error instanceof Error
-              ? error.message
-              : '건강 기록 동기화를 완료하지 못했어요.',
-          );
-      }
-    };
-    void automatic();
-    const timer = setInterval(() => {
-      void automatic();
-    }, 15 * 60000);
-    const app = AppState.addEventListener('change', state => {
-      if (state === 'active') void automatic();
-    });
-    return () => {
-      mounted = false;
-      clearInterval(timer);
-      app.remove();
-    };
-  }, [active, client, isCheckup, entry, route]);
   if (entry) return <HealthEntry kind={entry} onBack={() => setEntry(null)} />;
   const category: Category =
     route === 'home'
@@ -647,7 +531,16 @@ export function HealthScreen({
             }
             onMode={mode => setRoute(mode === 'overview' ? 'home' : mode)}
             onRegister={onRegister}
-            analysis={<AnalysisCard category="checkup" active={active} />}
+            analysis={
+              <>
+                <AnalysisCard category="checkup" active={active} />
+                <MissionRecommendationCard
+                  scope="CHECKUP"
+                  active={active}
+                  onOpen={onMissions}
+                />
+              </>
+            }
           />
         ) : (
           <>
@@ -702,6 +595,7 @@ export function HealthScreen({
                   />
                 </View>
                 <LifestyleScoreCard active={active} />
+                <MissionSummaryCard active={active} onOpen={onMissions} />
                 <Text style={hs.section}>영역별 변화</Text>
                 {domains.map(d => (
                   <Pressable
@@ -783,7 +677,12 @@ export function HealthScreen({
                     data={data}
                   />
                 )}
-                <MissionCard category={category} />
+                <MissionRecommendationCard
+                  key={category}
+                  scope={category.toUpperCase()}
+                  active={active}
+                  onOpen={onMissions}
+                />
               </>
             )}
           </>
