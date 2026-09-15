@@ -101,6 +101,13 @@ export const hs = StyleSheet.create({
     paddingHorizontal: 4,
   },
   value: { fontSize: 28, fontWeight: '800', color: colors.primaryDark },
+  // 작성자: 김진우 — 작은 단위의 줄 높이가 섭취량 숫자를 자르지 않도록 별도로 배치한다.
+  waterRecordAmount: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 5,
+  },
+  waterRecordValue: { lineHeight: 38, includeFontPadding: true },
   error: { fontSize: 12, lineHeight: 18, color: colors.danger },
   input: {
     borderWidth: 1,

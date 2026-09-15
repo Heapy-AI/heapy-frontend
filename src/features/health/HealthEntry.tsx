@@ -840,10 +840,12 @@ function WaterRecords({ onBack }: { onBack: () => void }) {
                   {r.source === 'manual' ? '앱 입력' : '삼성헬스 · 편집 불가'}
                 </Text>
               </View>
-              <Text style={hs.value}>
-                {format(numeric(r, 'amount_ml'))}{' '}
-                <Text style={hs.muted}>ml</Text>
-              </Text>
+              <View style={hs.waterRecordAmount}>
+                <Text style={[hs.value, hs.waterRecordValue]}>
+                  {format(numeric(r, 'amount_ml'))}
+                </Text>
+                <Text style={hs.muted}>mL</Text>
+              </View>
             </Pressable>
           ))}
           {selection ? (
