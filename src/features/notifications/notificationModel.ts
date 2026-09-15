@@ -1,4 +1,5 @@
 import { NotificationItem } from './notificationApi';
+import { formatDuration } from '../../shared/utils/duration';
 export const unread = (item: NotificationItem) =>
   item.status === 'sent' && !item.openedAt;
 export const dayInKorea = (date: string | number) =>
@@ -9,8 +10,7 @@ export function relativeTime(date: string, now = Date.now()) {
   const elapsed = Math.max(0, now - Date.parse(date));
   if (dayInKorea(date) === dayInKorea(now)) {
     if (elapsed < 60000) return '방금 전';
-    if (elapsed < 3600000) return `${Math.floor(elapsed / 60000)}분 전`;
-    return `${Math.floor(elapsed / 3600000)}시간 전`;
+    return `${formatDuration(elapsed / 1000, '초')} 전`;
   }
   if (dayInKorea(date) === dayInKorea(now - 86400000)) return '어제';
   const day = dayInKorea(date).split('-');

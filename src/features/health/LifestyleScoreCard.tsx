@@ -182,7 +182,7 @@ export function LifestyleScoreCard({ active }: { active: boolean }) {
             시간당 15점을 낮춰요. 최근 7일 중 5일 이상 기록의 평균이에요.
           </Text>
           <Text style={hs.muted}>
-            활동: 하루 8,000보 또는 운동 30분의 달성률 중 높은 값을 사용해요.
+            활동: 하루 8,000보 또는 운동 0.5시간의 달성률 중 높은 값을 사용해요.
             최근 14일 중 7일 이상 기록의 평균이에요.
           </Text>
           <Text style={hs.muted}>

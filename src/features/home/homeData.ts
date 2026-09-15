@@ -1,5 +1,6 @@
 // 작성자: 김진우 — 홈 카드 수치는 서버 집계값만 표시하며 결측을 0으로 대체하지 않는다.
 import { MetricId } from './homeModel';
+import { formatDuration } from '../../shared/utils/duration';
 
 export type HomeValue = {
   date: string;
@@ -39,10 +40,7 @@ export function formatValue(
 ): string {
   if (value == null || !Number.isFinite(value)) return '기록 없음';
   if (id === 'sleep' || id === 'exercise') {
-    const minutes = Math.round(id === 'exercise' ? value / 60 : value);
-    return minutes >= 60
-      ? `${Math.floor(minutes / 60)}시간 ${minutes % 60}분`
-      : `${minutes}분`;
+    return formatDuration(value, id === 'exercise' ? '초' : '분');
   }
   if (id === 'pressure')
     return secondary == null

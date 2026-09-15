@@ -1,5 +1,6 @@
 // 작성자: 김진우 — 추천 조회와 명시적인 수락을 기존 미션 조회 캐시와 연결한다.
 import React, { useEffect, useRef, useState } from 'react';
+import { formatDurationText } from '../../shared/utils/duration';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
@@ -145,11 +146,15 @@ export function MissionRecommendationCard({
               <Text style={[s.kicker, { color: theme.color }]}>
                 작은 실천으로 시작해요
               </Text>
-              <Text style={s.title}>{suggestion.title}</Text>
+              <Text style={s.title}>
+                {formatDurationText(suggestion.title)}
+              </Text>
             </View>
             <MissionSymbol color={theme.color} tint={theme.tint} />
           </View>
-          <Text style={s.description}>{suggestion.description}</Text>
+          <Text style={s.description}>
+            {formatDurationText(suggestion.description)}
+          </Text>
           <View style={s.actionRow}>
             <View style={s.actionCopy}>
               <Text style={s.actionTitle}>오늘의 작은 실천</Text>

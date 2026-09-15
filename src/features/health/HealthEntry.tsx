@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { formatDuration } from '../../shared/utils/duration';
 import {
   PanResponder,
   Pressable,
@@ -174,7 +175,7 @@ function SleepDial({
         </Svg>
       </View>
       <Text style={[hs.value, { textAlign: 'center' }]}>
-        {Math.floor(duration / 60)}시간 {duration % 60}분
+        {formatDuration(duration)}
       </Text>
     </View>
   );
@@ -354,7 +355,7 @@ export function HealthEntry({
                 <Text style={hs.muted}>{label}</Text>
                 <View style={hs.row}>
                   <Pressable
-                    accessibilityLabel={`${label} 5분 이전`}
+                    accessibilityLabel={`${label} ${formatDuration(5)} 이전`}
                     onPress={() =>
                       i
                         ? setEnd((end + 1435) % 1440)
@@ -365,7 +366,7 @@ export function HealthEntry({
                   </Pressable>
                   <Text style={hs.text}>{clock(i ? end : start)}</Text>
                   <Pressable
-                    accessibilityLabel={`${label} 5분 이후`}
+                    accessibilityLabel={`${label} ${formatDuration(5)} 이후`}
                     onPress={() =>
                       i
                         ? setEnd((end + 5) % 1440)

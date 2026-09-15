@@ -1,5 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  durationHours,
+  formatDuration,
+  formatHours,
+} from '../../shared/utils/duration';
+import {
   BackHandler,
   Platform,
   Pressable,
@@ -273,8 +278,14 @@ function MetricCard({
           flexWrap: 'wrap',
         }}
       >
-        <Text style={[hs.value, { color }]}>{format(value)}</Text>
-        <Text style={hs.metricUnit}>{unit}</Text>
+        <Text style={[hs.value, { color }]}>
+          {unit === '분' || unit === '초'
+            ? formatHours(durationHours(value, unit))
+            : format(value)}
+        </Text>
+        <Text style={hs.metricUnit}>
+          {unit === '분' || unit === '초' ? '시간' : unit}
+        </Text>
       </View>
       <Text style={hs.metricDate}>
         {today ? koreanDay() : record?.date ?? '기록 없음'}
@@ -799,12 +810,11 @@ function DetailGraphs({
                   </Text>
                   <Text style={hs.muted}>
                     {r.date} ·{' '}
-                    {format(
+                    {formatDuration(
                       numeric(r, 'duration_seconds') === null
                         ? null
                         : numeric(r, 'duration_seconds')! / 60,
                     )}
-                    분
                   </Text>
                 </View>
                 <Text style={hs.text}>

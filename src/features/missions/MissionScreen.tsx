@@ -1,5 +1,6 @@
 // 작성자: 김진우 — 팀원 DEV의 목록·상세·피드백·달력을 실제 앱 데이터와 연결한다.
 import React, { useEffect, useState } from 'react';
+import { formatDurationText } from '../../shared/utils/duration';
 import {
   AppState,
   Platform,
@@ -391,7 +392,7 @@ export function MissionScreen({
                     </Text>
                   </View>
                   <View style={ms.flex}>
-                    <Text style={ms.text}>{m.title}</Text>
+                    <Text style={ms.text}>{formatDurationText(m.title)}</Text>
                     <Text style={ms.muted}>
                       {unitText(m, m.currentValue)} /{' '}
                       {unitText(m, m.targetValue)}
@@ -427,8 +428,12 @@ export function MissionScreen({
                 style={ms.hero}
               >
                 <Text style={[ms.muted, ms.white]}>오늘의 행동 미션</Text>
-                <Text style={ms.heroTitle}>{mission.title}</Text>
-                <Text style={[ms.muted, ms.white]}>{mission.description}</Text>
+                <Text style={ms.heroTitle}>
+                  {formatDurationText(mission.title)}
+                </Text>
+                <Text style={[ms.muted, ms.white]}>
+                  {formatDurationText(mission.description)}
+                </Text>
                 <Text style={ms.heroPercent}>{mission.progressPercent}%</Text>
                 <View style={ms.heroTrack}>
                   <View

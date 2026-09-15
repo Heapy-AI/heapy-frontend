@@ -15,6 +15,22 @@ import { chartDates, format } from './healthModel';
 import { axisMaximum, lineSegments } from './chartGeometry';
 import { useHealthMotion } from './useHealthMotion';
 import { hs } from './healthStyles';
+import { durationHours, formatHours } from '../../shared/utils/duration';
+
+// 작성자: 김진우 — 그래프·말풍선·수치표는 동일한 시간 단위를 사용하고 원본 계열은 변경하지 않는다.
+const hourlySeries = (items: Series[]) =>
+  items.map(item =>
+    ['분', '초', 'MINUTE', 'SECOND'].includes(item.unit)
+      ? {
+          ...item,
+          unit: '시간',
+          points: item.points.map(point => ({
+            ...point,
+            value: durationHours(point.value, item.unit)!,
+          })),
+        }
+      : item,
+  );
 const AnimatedRect = Animated.createAnimatedComponent(Rect);
 const AnimatedGroup = Animated.createAnimatedComponent(G);
 const palette = [
@@ -27,12 +43,12 @@ const palette = [
 ];
 export function HealthChart({
   title,
-  series,
+  series: sourceSeries,
   kind = 'line',
   note,
-  tableSeries,
+  tableSeries: sourceTableSeries,
   period,
-  maximum,
+  maximum: sourceMaximum,
 }: {
   title: string;
   series: Series[];
@@ -42,6 +58,15 @@ export function HealthChart({
   period?: HealthPage['period'];
   maximum?: number;
 }) {
+  const series = useMemo(() => hourlySeries(sourceSeries), [sourceSeries]);
+  const tableSeries = useMemo(
+    () => (sourceTableSeries ? hourlySeries(sourceTableSeries) : undefined),
+    [sourceTableSeries],
+  );
+  const maximum =
+    sourceMaximum == null
+      ? sourceMaximum
+      : durationHours(sourceMaximum, sourceSeries[0]?.unit) ?? sourceMaximum;
   const [width, setWidth] = useState(300),
     [zoom, setZoom] = useState(1),
     [table, setTable] = useState(false),
@@ -378,7 +403,9 @@ export function HealthChart({
                       <View style={[s.dot, { backgroundColor: v.color }]} />
                       <Text style={s.tooltipLabel}>{v.series.label}</Text>
                       <Text style={s.tooltipValue}>
-                        {format(v.point?.value)}{' '}
+                        {v.series.unit === '시간'
+                          ? formatHours(v.point?.value)
+                          : format(v.point?.value)}{' '}
                         <Text style={s.tooltipUnit}>{v.series.unit}</Text>
                       </Text>
                     </View>
@@ -431,7 +458,11 @@ export function HealthChart({
                 const p = a.points.find(v => v.date === d);
                 return (
                   <Text key={a.key} style={hs.muted}>
-                    {a.label}: {format(p?.value)} {a.unit}
+                    {a.label}:{' '}
+                    {a.unit === '시간'
+                      ? formatHours(p?.value)
+                      : format(p?.value)}{' '}
+                    {a.unit}
                     {p
                       ? ` · 기록 ${p.recordedDays}일 / 구간 ${p.spanDays}일`
                       : ''}

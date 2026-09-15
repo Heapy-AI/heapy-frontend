@@ -1,5 +1,6 @@
 // 작성자: 김진우 — 홈·내 건강 카드에서 실제 미션 상태와 상세 이동을 공유한다.
 import React from 'react';
+import { formatDurationText } from '../../shared/utils/duration';
 import { Pressable, Text, View } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useMissions, statusText, unitText } from './missionApi';
@@ -68,7 +69,9 @@ export function MissionSummaryCard({
               style={ms.summaryItem}
             >
               <View style={ms.between}>
-                <Text style={[ms.text, ms.flex]}>{m.title}</Text>
+                <Text style={[ms.text, ms.flex]}>
+                  {formatDurationText(m.title)}
+                </Text>
                 <Text style={ms.green}>{statusText[m.status]}</Text>
               </View>
               <Text style={ms.muted}>

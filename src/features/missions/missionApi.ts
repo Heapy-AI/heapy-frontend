@@ -1,5 +1,6 @@
 // 작성자: 김진우 — 모든 미션 화면이 같은 서버 계약과 조회 캐시를 사용한다.
 import { useQuery } from '@tanstack/react-query';
+import { formatDuration } from '../../shared/utils/duration';
 import { apiClient } from '../../shared/api/client';
 import { useMedicationToday } from '../medication/useMedicationToday';
 
@@ -102,19 +103,20 @@ export const statusText: Record<Mission['status'], string> = {
   EXPIRED: '기간 종료',
 };
 export const unitText = (m: Pick<Mission, 'unit'>, n: number) =>
-  `${n}${
-    (
-      {
-        MINUTE: '분',
-        CUP: '잔',
-        COUNT: '회',
-        STEP: '보',
-        FLOOR: '층',
-        ML: 'mL',
-        METER: 'm',
-      } as Record<string, string>
-    )[m.unit] ?? ''
-  }`;
+  ['MINUTE', 'SECOND', 'HOUR'].includes(m.unit)
+    ? formatDuration(n, m.unit)
+    : `${n}${
+        (
+          {
+            CUP: '잔',
+            COUNT: '회',
+            STEP: '보',
+            FLOOR: '층',
+            ML: 'mL',
+            METER: 'm',
+          } as Record<string, string>
+        )[m.unit] ?? ''
+      }`;
 export function addDays(date: string, days: number) {
   const d = new Date(date + 'T00:00:00Z');
   d.setUTCDate(d.getUTCDate() + days);

@@ -443,7 +443,7 @@ export function HomeDashboard(_props: Props) {
                 <Text style={s.briefingTitle}>
                   오늘의 건강,{'\n'}한눈에 확인해보세요
                 </Text>
-                <Text style={s.briefChip}>어제보다 수면 +42분</Text>
+                <Text style={s.briefChip}>어제보다 수면 +0.7시간</Text>
               </View>
               <CompanionAvatar />
             </LinearGradient>
@@ -944,7 +944,7 @@ export function HomeDashboard(_props: Props) {
             </Text>
             <Text style={s.small}>
               {detail === '브리핑'
-                ? '수면은 회복 중이고 활동량은 감소했어요.\n수면 7시간 12분 · 걸음 5,920보'
+                ? '수면은 회복 중이고 활동량은 감소했어요.\n수면 7.2시간 · 걸음 5,920보'
                 : '홈 UI 미리보기용 예시 화면입니다.'}
             </Text>
             <Action title="확인" onPress={() => setDetail(undefined)} />
