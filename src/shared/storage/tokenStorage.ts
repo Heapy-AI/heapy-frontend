@@ -1,3 +1,4 @@
+import { NativeModules } from 'react-native';
 import * as Keychain from 'react-native-keychain';
 import { Tokens } from '../types/api';
 
@@ -57,6 +58,7 @@ export const tokenStorage = {
     await task;
   },
   async clear(): Promise<void> {
+    await NativeModules.HeapyPush?.session('', '').catch(() => {});
     version++;
     cached = null;
     hydration = undefined;

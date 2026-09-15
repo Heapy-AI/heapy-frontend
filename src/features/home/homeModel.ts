@@ -1,4 +1,4 @@
-// 작성자: 김진우 — 홈 미리보기 전용 상태이며 업무 API에 전송하지 않는다.
+// 작성자: 김진우 — 홈 카드 표시 설정과 지표 이름을 정의한다.
 export const moduleLabels = {
   briefing: 'AI 건강 브리핑',
   metrics: '핵심 데이터',
@@ -9,12 +9,12 @@ export const moduleLabels = {
 } as const;
 export type ModuleId = keyof typeof moduleLabels;
 export const metrics = {
-  sleep: ['수면', '7시간 12분', '+42분'],
-  steps: ['걸음 수', '5,920보', '전주 대비 −12%'],
-  exercise: ['운동시간', '42분', '가벼운 운동'],
-  count: ['운동 횟수', '주 3회', '이번 주'],
-  heart: ['심박수', '72 bpm', '안정 시'],
-  pressure: ['혈압', '120/80', 'mmHg'],
+  sleep: ['수면', '기록 없음', ''],
+  steps: ['걸음 수', '기록 없음', ''],
+  exercise: ['운동시간', '기록 없음', ''],
+  count: ['운동 횟수', '기록 없음', ''],
+  heart: ['심박수', '기록 없음', ''],
+  pressure: ['혈압', '기록 없음', ''],
 } as const;
 export type MetricId = keyof typeof metrics;
 export type HomeSettings = {
@@ -28,7 +28,7 @@ export type HomeSettings = {
 };
 export function defaultHomeSettings(): HomeSettings {
   return {
-    modules: ['briefing', 'metrics', 'mission'],
+    modules: ['briefing', 'metrics', 'medication', 'mission'],
     metrics: ['sleep', 'steps'],
     medicationMode: 'next',
     medicationName: true,

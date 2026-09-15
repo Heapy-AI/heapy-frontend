@@ -22,6 +22,7 @@ import { createIdempotencyKey } from '../../shared/utils/idempotency';
 import { onboardingDraft } from '../onboarding/onboardingDraft';
 import { ConfirmModal } from '../../shared/components/ConfirmModal';
 import { useResponsiveLayout } from '../../shared/hooks/useResponsiveLayout';
+import { TodayMedicationCard } from '../medication/MedicationCards';
 import { AmbientEffect } from '../../shared/components/AmbientEffect';
 
 type Props = {
@@ -71,7 +72,6 @@ function MenuRow({
 
 export function MyScreen({ navigation, active = true }: Props) {
   const client = useQueryClient();
-  const [notice, setNotice] = useState('');
   const [confirmLogout, setConfirmLogout] = useState(false);
   const { compact, padding } = useResponsiveLayout();
   const logoutStarted = useRef(false);
@@ -97,8 +97,6 @@ export function MyScreen({ navigation, active = true }: Props) {
     data?.heightCm && data?.weightKg
       ? (data.weightKg / (data.heightCm / 100) ** 2).toFixed(1)
       : '—';
-  const preparing = (title: string) =>
-    setNotice(title + ' 기능은 준비 중이에요.');
   return (
     <View style={s.screen}>
       <ScrollView
@@ -169,7 +167,7 @@ export function MyScreen({ navigation, active = true }: Props) {
                 </View>
                 <Pressable
                   accessibilityRole="button"
-                  onPress={() => preparing('프로필 수정')}
+                  onPress={() => navigation.navigate('ProfileEdit')}
                   style={[s.edit, compact && { marginLeft: 'auto' }]}
                 >
                   <Text style={s.editText}>프로필 수정</Text>
@@ -205,29 +203,21 @@ export function MyScreen({ navigation, active = true }: Props) {
             </LinearGradient>
           )
         )}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="오늘의 복약 일정"
-          onPress={() => preparing('오늘의 복약 일정')}
-          style={s.schedule}
-        >
-          <View style={s.sectionTop}>
-            <Text style={s.sectionTitle}>오늘의 복약 일정</Text>
-            <Text style={s.comingSoon}>준비 중</Text>
-          </View>
-          <Text style={s.scheduleDescription}>
-            복약 일정 기능을 준비하고 있어요.
-          </Text>
-        </Pressable>
+        <TodayMedicationCard
+          active={active}
+          onOpen={() =>
+            navigation.navigate('MedicationManagement', { tab: 'schedule' })
+          }
+        />
         <Text accessibilityRole="header" style={s.sectionHeading}>
           관리
         </Text>
         <MenuRow
           title="복약 정보 관리"
-          description="복용 약과 알림 시간을 관리해요"
+          description="복용 약과 일정을 관리해요"
           icon={icons.medication}
           tone="#ECF9F3"
-          onPress={() => preparing('복약 정보 관리')}
+          onPress={() => navigation.navigate('MedicationManagement')}
         />
         <MenuRow
           title="건강검진 등록 및 관리"
@@ -248,21 +238,6 @@ export function MyScreen({ navigation, active = true }: Props) {
         <Text accessibilityRole="header" style={s.sectionHeading}>
           설정
         </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="복용 알림 설정"
-          onPress={() => preparing('복용 알림 설정')}
-          style={s.settings}
-        >
-          <View style={s.menuCopy}>
-            <Text style={s.menuTitle}>복용 알림 설정</Text>
-            <Text style={s.menuDescription}>
-              복용 시간에 맞춰 알림을 받아요
-            </Text>
-          </View>
-          <Text style={s.comingSoon}>준비 중</Text>
-        </Pressable>
-
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="로그아웃"
@@ -309,40 +284,11 @@ export function MyScreen({ navigation, active = true }: Props) {
           });
         }}
       />
-      {!!notice && (
-        <View style={s.noticeBar}>
-          <Text accessibilityLiveRegion="polite" style={s.notice}>
-            {notice}
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="안내 닫기"
-            onPress={() => setNotice('')}
-            style={s.noticeClose}
-          >
-            <Text style={s.retryText}>닫기</Text>
-          </Pressable>
-        </View>
-      )}
     </View>
   );
 }
 const s = StyleSheet.create({
   screen: { flex: 1, minHeight: 0 },
-  noticeBar: {
-    position: 'absolute',
-    bottom: 8,
-    left: 16,
-    right: 16,
-    borderRadius: 16,
-    paddingLeft: 16,
-    backgroundColor: '#E0F4EC',
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.line,
-  },
-  noticeClose: { padding: 14, minHeight: 48, justifyContent: 'center' },
   content: { paddingHorizontal: 24, paddingTop: 12, paddingBottom: 24 },
   heading: {
     fontSize: 24,
@@ -413,25 +359,6 @@ const s = StyleSheet.create({
     paddingVertical: 5,
   },
   badgeText: { color: colors.surface, fontSize: 10, fontWeight: '700' },
-  schedule: {
-    backgroundColor: colors.surface,
-    borderRadius: 24,
-    padding: 18,
-    marginTop: 18,
-  },
-  sectionTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
-  scheduleDescription: {
-    color: colors.textMuted,
-    fontSize: 12,
-    lineHeight: 20,
-    marginTop: 14,
-  },
   sectionHeading: {
     fontSize: 18,
     fontWeight: '700',
@@ -471,22 +398,6 @@ const s = StyleSheet.create({
     marginTop: 4,
   },
   chevron: { width: 10, height: 18 },
-  settings: {
-    backgroundColor: colors.surface,
-    padding: 18,
-    borderRadius: 22,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  comingSoon: {
-    fontSize: 10,
-    color: colors.textMuted,
-    backgroundColor: colors.surfaceMuted,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 8,
-  },
   logout: {
     marginTop: 20,
     minHeight: 48,
@@ -508,7 +419,6 @@ const s = StyleSheet.create({
   stateText: { color: colors.textMuted, fontSize: 14 },
   retry: { padding: 12 },
   retryText: { color: colors.primaryDark, fontWeight: '700' },
-  notice: { flex: 1, color: colors.primaryDark, fontSize: 12, lineHeight: 20 },
   error: { color: colors.danger, fontSize: 12, lineHeight: 20, marginTop: 12 },
   pressed: { opacity: 0.7 },
 });

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { formatDuration } from '../../shared/utils/duration';
 import {
   Keyboard,
   Alert,
@@ -80,7 +81,10 @@ export function SignupScreen({ navigation }: Props) {
       if (!data.emailVerificationRequired) {
         reset();
         navigation.replace('Login');
-        Alert.alert('회원가입 완료', '가입한 이메일과 비밀번호로 로그인해 주세요.');
+        Alert.alert(
+          '회원가입 완료',
+          '가입한 이메일과 비밀번호로 로그인해 주세요.',
+        );
         return;
       }
       setConfirmation(data);
@@ -134,7 +138,7 @@ export function SignupScreen({ navigation }: Props) {
               <PrimaryButton
                 label={
                   remaining > 0
-                    ? `인증 메일 재발송 (${remaining}초)`
+                    ? `인증 메일 재발송 (${formatDuration(remaining, '초')})`
                     : '인증 메일 다시 보내기'
                 }
                 disabled={remaining > 0}

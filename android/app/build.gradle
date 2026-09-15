@@ -1,4 +1,6 @@
 apply plugin: "com.android.application"
+// 작성자: 김진우 — 설정 파일이 없는 개발 환경은 푸시 없이도 빌드한다.
+if (file("google-services.json").exists()) { apply plugin: "com.google.gms.google-services" }
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "kotlin-parcelize"
 apply plugin: "com.facebook.react"
@@ -88,13 +90,16 @@ android {
         versionName "1.0"
         manifestPlaceholders = [usesCleartextTraffic: "false"]
     }
-    signingConfigs {
+    // 작성자: 김진우 — 기존 로컬 키는 유지하고, 새 복제 환경은 기본 디버그 키를 자동 생성한다.
+    if (file('debug.keystore').exists()) {
+      signingConfigs {
         debug {
             storeFile file('debug.keystore')
             storePassword 'android'
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+      }
     }
     buildTypes {
         debug {
@@ -112,6 +117,8 @@ android {
 }
 
 dependencies {
+    implementation(platform("com.google.firebase:firebase-bom:34.19.0"))
+    implementation("com.google.firebase:firebase-messaging")
     implementation(files("libs/samsung-health-data-api-1.1.0.aar"))
     implementation("com.google.code.gson:gson:2.11.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")

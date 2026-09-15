@@ -1,4 +1,5 @@
 import { HealthPage, HealthRecord, PeriodCode, Series } from './types';
+import { formatDuration } from '../../shared/utils/duration';
 export const periods: { code: PeriodCode; label: string }[] = [
   { code: '7d', label: '7일' },
   { code: '30d', label: '30일' },
@@ -14,17 +15,10 @@ export const format = (value: unknown, digits = 1): string =>
   typeof value === 'number' && Number.isFinite(value)
     ? value.toLocaleString('ko-KR', { maximumFractionDigits: digits })
     : '—';
-// 작성자: 고수연 — 분을 '7시간 30분'으로 읽는다. 480분보다 한눈에 들어온다.
-// 한 시간이 안 되면 시간 자리를 쓰지 않는다. '0시간 33분'은 읽기 불편하다.
+// 작성자: 김진우 — 기존 분 포맷 호출도 공통 시간 표시 규칙을 따른다.
 export const formatMinutes = (value: unknown): string => {
   if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
-  const total = Math.round(value);
-  // 축의 밑동은 '0분'보다 '0'이 깔끔하다.
-  if (!total) return '0';
-  const hours = Math.floor(total / 60);
-  const minutes = total % 60;
-  if (!hours) return `${minutes}분`;
-  return minutes ? `${hours}시간 ${minutes}분` : `${hours}시간`;
+  return formatDuration(value);
 };
 export const numeric = (row: HealthRecord, key: string): number | null =>
   typeof row.values[key] === 'number' ? (row.values[key] as number) : null;
@@ -279,7 +273,8 @@ export function sleepStages(page?: HealthPage): Series[] {
       'manual_sleep_minutes',
       '직접 입력',
       '#DDD5FA',
-      (r: HealthRecord) => (staged(r) ? 0 : numeric(r, 'total_sleep_minutes') ?? 0),
+      (r: HealthRecord) =>
+        staged(r) ? 0 : numeric(r, 'total_sleep_minutes') ?? 0,
     ] as const,
   ];
   return columns.map(([key, label, color, pick]) => {

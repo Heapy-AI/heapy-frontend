@@ -1,6 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  AppState,
+  durationHours,
+  formatDuration,
+  formatHours,
+} from '../../shared/utils/duration';
+import {
   BackHandler,
   Platform,
   Pressable,
@@ -14,15 +18,16 @@ import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import LinearGradient from 'react-native-linear-gradient';
 import { Animated } from 'react-native';
 import { AmbientEffect } from '../../shared/components/AmbientEffect';
+import { AnalysisDetailModal } from '../../shared/components/AnalysisDetailModal';
 import { MetricIcon } from './MetricIcon';
 import { HealthMotionContext, useHealthMotion } from './useHealthMotion';
 import { refreshSamsungConnection } from './healthRefresh';
-import { syncSamsungHealth } from '../dataConnection/samsungSync';
 import { HealthIcon } from './HealthIcon';
-import { apiClient } from '../../shared/api/client';
-import { createIdempotencyKey } from '../../shared/utils/idempotency';
-import { ConfirmModal } from '../../shared/components/ConfirmModal';
+import { MissionRecommendationCard } from '../missions/MissionRecommendationCard';
+import { MissionSummaryCard } from '../missions/MissionSummaryCard';
 import { healthApi } from './healthApi';
+import { ScoreCard } from './ScoreCard';
+import { HealthRequestState } from './HealthRequestState';
 import { HealthChart } from './HealthChart';
 import { HealthEntry } from './HealthEntry';
 import { HealthCheckups } from './HealthCheckups';
@@ -130,11 +135,19 @@ type Route =
   | 'activity'
   | 'nutrition'
   | 'sleep';
+const analysisCategories: Category[] = [
+  'overall',
+  'bio',
+  'activity',
+  'nutrition',
+  'sleep',
+  'checkup',
+];
 const analysisMessages = {
   unavailable: '분석 서비스를 연결하고 있어요.',
   pending: '오늘의 분석을 기다리고 있어요.',
   generating: '최근 기록을 분석하고 있어요.',
-  failed: '오늘의 분석을 완료하지 못했어요.',
+  failed: '분석을 완료하지 못했어요. 아래로 당겨 다시 시도해 주세요.',
   result_lost: '오늘의 분석 결과를 불러올 수 없어요.',
   data_insufficient: '분석할 기록이 더 필요해요.',
 };
@@ -146,6 +159,8 @@ function AnalysisCard({
   active?: boolean;
 }) {
   const [day, setDay] = useState(koreanDay());
+  const [detailOpen, setDetailOpen] = useState(false);
+  useEffect(() => setDetailOpen(false), [category, active, day]);
   useEffect(() => {
     const timer = setInterval(() => setDay(koreanDay()), 30000);
     return () => clearInterval(timer);
@@ -153,8 +168,14 @@ function AnalysisCard({
   const query = useQuery({
     queryKey: ['health', 'analysis', category, day],
     queryFn: ({ signal }) => healthApi.analysis(category, signal),
+    enabled: active,
     retry: false,
     staleTime: 60000,
+    refetchInterval: state =>
+      active &&
+      ['pending', 'generating'].includes(state.state.data?.status ?? '')
+        ? 5000
+        : false,
   });
   const data = query.data;
   const valid =
@@ -162,7 +183,7 @@ function AnalysisCard({
     data.analysisDate === day &&
     new Date(data.expiresAt).getTime() > Date.now();
   const text = valid
-    ? data.report?.headline
+    ? data.report?.headline || '오늘의 건강 분석'
     : query.isPending
     ? '분석 결과를 불러오고 있어요.'
     : query.isError
@@ -170,218 +191,87 @@ function AnalysisCard({
     : data?.status && data.status !== 'generated'
     ? analysisMessages[data.status]
     : '오늘의 분석을 기다리고 있어요.';
-  return (
-    <LinearGradient
-      colors={
-        category === 'sleep'
-          ? ['#8057E0', '#4C83ED']
-          : category === 'nutrition'
-          ? ['#F39A5C', '#EA7D6E']
-          : category === 'checkup'
-          ? ['#7E89F1', '#A06FD5']
-          : ['#24BC94', '#488BFA']
-      }
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 0.6 }}
-      style={{
-        borderRadius: 26,
-        padding: 22,
-        gap: 12,
-        minHeight: 145,
-        overflow: 'hidden',
-      }}
-    >
-      <AmbientEffect active={active} testID="health-analysis-wave" />
-      <Text style={[hs.muted, hs.white, { fontSize: 10, letterSpacing: 0.5 }]}>
-        HEAPY AI ·{' '}
-        {category === 'overall' ? '종합 분석' : '최근·장기 기록 분석'}
-      </Text>
-      <Text style={[hs.section, hs.white, { fontSize: 19, lineHeight: 27 }]}>
-        {text}
-      </Text>
-      {valid && (
-        <Text style={[hs.text, hs.white]}>
-          {data.report?.current_state ||
-            data.report?.summary ||
-            data.report?.overall_analysis}
-        </Text>
-      )}
-      {valid && category === 'checkup' && !!data.report?.overall_analysis && (
-        <Text style={[hs.text, hs.white]}>{data.report.overall_analysis}</Text>
-      )}
-      {valid &&
-        (data.report?.actions ?? data.report?.recommendations ?? []).map(
-          (action, index) => (
-            <Text key={index} style={[hs.text, hs.white]}>
-              • {action}
-            </Text>
-          ),
-        )}
-      <Text style={[hs.muted, hs.white]}>
-        {valid
-          ? `${data.analysisDate} 기준 · 하루 한 번 분석`
-          : '측정 기록과 분석 결과는 별도로 업데이트돼요.'}
-      </Text>
-    </LinearGradient>
-  );
-}
-// 작성자: 고수연 — 점수를 내지 못한 이유. 서버가 내려주는 코드를 사람 말로 옮긴다.
-const scoreReasons: Record<string, string> = {
-  sleep_insufficient: '수면 기록이 더 필요해요.',
-  activity_insufficient: '활동 기록이 더 필요해요.',
-  bmi_missing: '체중이나 체성분 기록이 필요해요.',
-  bmi_stale: '체중 기록이 오래되어 최근 값이 필요해요.',
-  age_unavailable: '생년월일을 입력하면 점수를 낼 수 있어요.',
-  age_not_supported: '아직 만 20세 이상만 점수를 제공해요.',
-  data_limit_exceeded: '기록이 너무 많아 오늘 점수를 확정하지 못했어요.',
-  no_record: '아직 기록이 없어요.',
-};
-
-function ScoreCard() {
-  const query = useQuery({
-    queryKey: ['health', 'score', koreanDay()],
-    queryFn: ({ signal }) => healthApi.score('7d', signal),
-    retry: false,
-    staleTime: 60000,
+  const report = valid ? data.report : undefined;
+  const seen = new Set<string>();
+  const sections = [
+    { label: '현재 상태', text: report?.current_state },
+    { label: '분석 요약', text: report?.summary },
+    { label: '종합 분석', text: report?.overall_analysis },
+    {
+      label: '실천 제안',
+      text: report?.actions?.map(action => `• ${action}`).join('\n'),
+    },
+    {
+      label: '권장 사항',
+      text: report?.recommendations?.map(action => `• ${action}`).join('\n'),
+    },
+  ].filter(section => {
+    if (!section.text || seen.has(section.text)) return false;
+    seen.add(section.text);
+    return true;
   });
-  const latest = query.data?.latest;
-  const total = latest?.score ?? null;
-  // 점수가 없을 때는 첫 번째 사유만 보여준다. 여러 개를 늘어놓으면 읽지 않는다.
-  const message = query.isPending
-    ? '점수를 불러오고 있어요.'
-    : query.isError
-    ? '점수를 불러오지 못했어요.'
-    : scoreReasons[latest?.reasons?.[0] ?? ''] ??
-      '기록이 더 쌓이면 점수를 보여드릴게요.';
-
   return (
-    <View style={[hs.card, { minHeight: 200 }]}>
-      <Text style={hs.section}>전체 건강 흐름</Text>
-      <Text style={hs.muted}>오늘의 건강 종합 점수</Text>
-      <View style={{ flex: 1, justifyContent: 'center', minHeight: 110 }}>
-        {total === null ? (
-          <>
-            <Text style={[hs.text, { textAlign: 'center' }]}>{message}</Text>
-            <Text style={[hs.muted, { textAlign: 'center' }]}>
-              영역별 기록에서 실제 수치와 변화를 확인할 수 있어요.
-            </Text>
-          </>
-        ) : (
-          <>
-            <Text
-              accessibilityLabel={`오늘의 건강 종합 점수 ${total}점`}
-              style={[
-                hs.value,
-                { textAlign: 'center', fontSize: 48, lineHeight: 56 },
-              ]}
-            >
-              {total}
-              <Text style={[hs.muted, { fontSize: 18 }]}>점</Text>
-            </Text>
-            <View style={[hs.row, { justifyContent: 'center', gap: 18 }]}>
-              <ScorePart label="수면" value={latest?.sleep?.score} />
-              <ScorePart label="활동" value={latest?.activity?.score} />
-              <ScorePart label="BMI" value={latest?.bmiScore} />
-            </View>
-          </>
-        )}
-      </View>
-    </View>
-  );
-}
-
-function ScorePart({ label, value }: { label: string; value?: number | null }) {
-  return (
-    <View style={{ alignItems: 'center' }}>
-      <Text style={hs.muted}>{label}</Text>
-      <Text style={hs.text}>
-        {value === null || value === undefined ? '—' : Math.round(value)}
-      </Text>
-    </View>
-  );
-}
-
-function MissionCard({ category }: { category: Category }) {
-  const client = useQueryClient(),
-    [confirm, setConfirm] = useState(false),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState(''),
-    [key] = useState(createIdempotencyKey);
-  const query = useQuery({
-    queryKey: ['health', 'missions', category],
-    queryFn: async ({ signal }) =>
-      (
-        await apiClient.get<{
-          items: {
-            userMissionId: string;
-            title: string;
-            description: string;
-          }[];
-        }>('/api/missions/suggestions', { signal, params: { category } })
-      ).data,
-    retry: false,
-  });
-  const mission = query.data?.items?.[0];
-  return (
-    <View
-      style={[hs.card, { backgroundColor: '#E0F8EF', borderColor: '#20BA8A' }]}
-    >
-      <Text style={hs.pillText}>HEAPY 추천 미션</Text>
-      <View style={hs.between}>
-        <View style={hs.spacer}>
-          <Text style={hs.section}>
-            {mission?.title ||
-              (query.isError
-                ? '추천 미션을 불러오지 못했어요.'
-                : query.isPending
-                ? '미션을 불러오고 있어요.'
-                : '지금은 추천 미션이 없어요.')}
-          </Text>
-          {!!mission?.description && (
-            <Text style={hs.muted}>{mission.description}</Text>
-          )}
-        </View>
-        {mission && (
-          <Pressable
-            onPress={() => setConfirm(true)}
-            style={[hs.pill, hs.active]}
-          >
-            <Text style={[hs.pillText, hs.white]}>추가하기</Text>
-          </Pressable>
-        )}
-      </View>
-      <ConfirmModal
-        visible={confirm}
-        title="오늘의 미션에 추가할까요?"
-        description={mission?.title ?? ''}
-        confirmLabel="추가하기"
-        pending={busy}
-        error={error}
-        onCancel={() => setConfirm(false)}
-        onConfirm={async () => {
-          if (!mission || busy) return;
-          setBusy(true);
-          setError('');
-          try {
-            await apiClient.post(
-              `/api/missions/${encodeURIComponent(
-                mission.userMissionId,
-              )}/accept`,
-              {},
-              { headers: { 'Idempotency-Key': key } },
-            );
-            setConfirm(false);
-            await client.invalidateQueries({
-              queryKey: ['health', 'missions'],
-            });
-          } catch (e) {
-            setError(e instanceof Error ? e.message : '추가하지 못했어요.');
-          } finally {
-            setBusy(false);
+    <>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={valid ? `${text}, 분석 상세 보기` : text}
+        accessibilityState={{ disabled: !valid && !query.isError }}
+        disabled={!valid && !query.isError}
+        onPress={() => (valid ? setDetailOpen(true) : query.refetch())}
+      >
+        <LinearGradient
+          colors={
+            category === 'sleep'
+              ? ['#8057E0', '#4C83ED']
+              : category === 'nutrition'
+              ? ['#F39A5C', '#EA7D6E']
+              : category === 'checkup'
+              ? ['#7E89F1', '#A06FD5']
+              : ['#24BC94', '#488BFA']
           }
-        }}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0.6 }}
+          style={{
+            borderRadius: 26,
+            padding: 22,
+            gap: 12,
+            minHeight: 145,
+            overflow: 'hidden',
+            borderWidth: 1,
+            borderColor: '#FFFFFF99',
+            boxShadow: '0px 9px 22px rgba(41, 145, 178, 0.23)',
+          }}
+        >
+          <AmbientEffect active={active} testID="health-analysis-wave" />
+          <Text
+            style={[hs.muted, hs.white, { fontSize: 10, letterSpacing: 0.5 }]}
+          >
+            HEAPY AI ·{' '}
+            {category === 'overall' ? '종합 분석' : '최근·장기 기록 분석'}
+          </Text>
+          <Text
+            numberOfLines={2}
+            ellipsizeMode="tail"
+            style={[hs.section, hs.white, { fontSize: 19, lineHeight: 27 }]}
+          >
+            {text}
+          </Text>
+          <Text style={[hs.muted, hs.white]}>
+            {valid
+              ? `${data.analysisDate} 기준 · 자세히 보기 ›`
+              : query.isError
+              ? '눌러서 다시 불러오기'
+              : '측정 기록과 분석 결과는 별도로 업데이트돼요.'}
+          </Text>
+        </LinearGradient>
+      </Pressable>
+      <AnalysisDetailModal
+        visible={detailOpen && active && !!valid}
+        title={text ?? '오늘의 건강 분석'}
+        sections={sections}
+        onClose={() => setDetailOpen(false)}
       />
-    </View>
+    </>
   );
 }
 // 작성자: 고수연 — 조회 기간 선택. 수치 카드는 오늘·최근 기록만 보여주므로 그래프 바로
@@ -438,16 +328,10 @@ function PeriodPicker({
   );
 }
 
-// 작성자: 고수연 — 분을 [숫자, 단위] 쌍으로 쪼갠다. 한 시간이 안 되면 분만 남긴다.
+// 작성자: 김진우 — 팀원 수치 카드 디자인에 시간 소수점 한 자리 표시를 적용한다.
 function hourParts(value: number | null): Array<[string, string]> {
   if (value === null || !Number.isFinite(value)) return [['—', '']];
-  const total = Math.round(value);
-  const hours = Math.floor(total / 60);
-  const minutes = total % 60;
-  if (!hours) return [[String(minutes), '분']];
-  return minutes
-    ? [[String(hours), '시간'], [String(minutes), '분']]
-    : [[String(hours), '시간']];
+  return [[formatHours(durationHours(value)), '시간']];
 }
 
 function MetricCard({
@@ -466,7 +350,7 @@ function MetricCard({
   unit: string;
   color?: string;
   today?: boolean;
-  // 작성자: 고수연 — 분으로 담긴 값을 '7시간 30분'으로 읽는다. 단위 글자는 따로 쓰지 않는다.
+  // 작성자: 김진우 — 분으로 저장된 값을 시간으로 변환하고 단위 글자를 분리한다.
   minutes?: boolean;
   // 저장 단위와 보여줄 단위가 다를 때 곱한다. 물은 mL 로 담고 잔으로 읽는다.
   factor?: number;
@@ -506,6 +390,13 @@ function MetricCard({
         },
       ]}
     >
+      <LinearGradient
+        pointerEvents="none"
+        colors={['#FFFFFF', `${color}18`]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={hs.surface}
+      />
       <View style={hs.between}>
         <View style={[hs.metricIcon, { backgroundColor: color + '12' }]}>
           <MetricIcon field={field} color={color} />
@@ -521,8 +412,7 @@ function MetricCard({
         }}
       >
         {minutes ? (
-          // 작성자: 고수연 — '시간'과 '분'도 단위다. 다른 카드처럼 작고 흐리게 둔다.
-          // 괄호는 '7시간 30분' 전체를 감싸야 해서 앞뒤 조각에 나눠 붙인다.
+          // 작성자: 김진우 — 과거 기록 괄호와 작은 단위 표시는 팀원 디자인을 유지한다.
           hourParts(value).map(([amount, suffix], i, all) => (
             <View key={suffix} style={hs.metricAmount}>
               <Text style={[hs.value, { color }]}>
@@ -552,11 +442,13 @@ export function HealthScreen({
   onNestedChange,
   onExit,
   onRegister,
+  onMissions,
 }: {
   active: boolean;
   onNestedChange: (nested: boolean) => void;
   onExit: () => void;
   onRegister: () => void;
+  onMissions?: (id?: string) => void;
 }) {
   const [route, setRoute] = useState<Route>('home'),
     [tab, setTab] = useState<'life' | 'checkup'>('life'),
@@ -639,13 +531,28 @@ export function HealthScreen({
     route === 'all';
   // 작성자: 김진우 — 실제 동기화가 완료된 뒤 서버 기록을 다시 조회한다.
   const refresh = async () => {
-    if (refreshing || isCheckup) return;
+    if (refreshing) return;
     setRefreshing(true);
     setSyncError('');
     setSyncNotice('');
     try {
-      const result = await refreshSamsungConnection(setSyncNotice);
-      setSyncNotice(result.message);
+      // 작성자: 김진우 — 삼성헬스 실패와 무관하게 모든 영역의 실패 분석을 재시도한다.
+      const results = await Promise.allSettled([
+        ...analysisCategories.map(async target => {
+          const result = await healthApi.retryAnalysis(target);
+          const key = ['health', 'analysis', target, result.analysisDate];
+          await client.cancelQueries({ queryKey: key });
+          client.setQueryData(key, result);
+        }),
+        isCheckup
+          ? Promise.resolve()
+          : (async () => {
+              const result = await refreshSamsungConnection(setSyncNotice);
+              setSyncNotice(result.message);
+            })(),
+      ]);
+      const failure = results.find(result => result.status === 'rejected');
+      if (failure?.status === 'rejected') throw failure.reason;
     } catch (error) {
       setSyncNotice('');
       setSyncError(
@@ -661,38 +568,6 @@ export function HealthScreen({
       setRefreshing(false);
     }
   };
-  useEffect(() => {
-    if (!active || isCheckup || entry || route === 'entries') return;
-    let mounted = true;
-    const automatic = async () => {
-      if (AppState.currentState && AppState.currentState !== 'active') return;
-      try {
-        await syncSamsungHealth({ automatic: true });
-        if (mounted) setSyncError('');
-        await client.invalidateQueries({ queryKey: ['health'] });
-        await client.invalidateQueries({ queryKey: ['health-connections'] });
-      } catch (error) {
-        if (mounted)
-          setSyncError(
-            error instanceof Error
-              ? error.message
-              : '건강 기록 동기화를 완료하지 못했어요.',
-          );
-      }
-    };
-    void automatic();
-    const timer = setInterval(() => {
-      void automatic();
-    }, 15 * 60000);
-    const app = AppState.addEventListener('change', state => {
-      if (state === 'active') void automatic();
-    });
-    return () => {
-      mounted = false;
-      clearInterval(timer);
-      app.remove();
-    };
-  }, [active, client, isCheckup, entry, route]);
   if (entry) return <HealthEntry kind={entry} onBack={() => setEntry(null)} />;
   const category: Category =
     route === 'home'
@@ -714,13 +589,11 @@ export function HealthScreen({
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={hs.content}
         refreshControl={
-          isCheckup ? undefined : (
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={refresh}
-              tintColor="#20BA8A"
-            />
-          )
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={refresh}
+            tintColor="#20BA8A"
+          />
         }
       >
         <View style={[hs.between, { flexWrap: 'wrap' }]}>
@@ -747,7 +620,7 @@ export function HealthScreen({
                 : domains.find(d => d.id === route)?.title}
             </Text>
           </View>
-          {route !== 'entries' && !isCheckup && (
+          {route !== 'entries' && (
             <View style={hs.row}>
               <Pressable
                 accessibilityRole="button"
@@ -777,7 +650,7 @@ export function HealthScreen({
             {syncNotice}
           </Text>
         )}
-        {!isCheckup && !!syncError && (
+        {!!syncError && (
           <Text accessibilityRole="alert" style={hs.error}>
             {syncError}
           </Text>
@@ -862,26 +735,29 @@ export function HealthScreen({
             }
             onMode={mode => setRoute(mode === 'overview' ? 'home' : mode)}
             onRegister={onRegister}
-            analysis={<AnalysisCard category="checkup" active={active} />}
+            analysis={
+              <>
+                <AnalysisCard category="checkup" active={active} />
+                <MissionRecommendationCard
+                  scope="CHECKUP"
+                  active={active}
+                  onOpen={onMissions}
+                />
+              </>
+            }
           />
         ) : (
           <>
             <AnalysisCard category={category} active={active} />
-            {/* 작성자: 고수연 — 여기 알림은 수치 카드용 조회만 다룬다. 기간 버튼이 부르는
-                그래프용 조회의 상태는 버튼 아래에서 알린다(아래 pagesStatus). */}
             {cardPages.some(p => p.isError) && (
-              <View style={hs.card}>
-                <Text accessibilityRole="alert" style={hs.error}>
-                  일부 건강 기록을 불러오지 못했어요.
-                </Text>
-                <Pressable
-                  onPress={() =>
-                    client.invalidateQueries({ queryKey: ['health', 'page'] })
-                  }
-                >
-                  <Text style={hs.pillText}>다시 불러오기</Text>
-                </Pressable>
-              </View>
+              <HealthRequestState
+                title="일부 건강 기록을 불러오지 못했어요"
+                description="잠시 후 다시 시도해 주세요."
+                busy={cardPages.some(p => p.isFetching)}
+                retry={() =>
+                  client.invalidateQueries({ queryKey: ['health', 'page'] })
+                }
+              />
             )}
             {cardPages.some(p => p.isPending) && (
               <Text style={hs.muted}>건강 기록을 불러오고 있어요.</Text>
@@ -924,14 +800,20 @@ export function HealthScreen({
                     today
                   />
                 </View>
-                <ScoreCard />
+                <ScoreCard active={active} />
+                <MissionSummaryCard active={active} onOpen={onMissions} />
                 <Text style={hs.section}>영역별 변화</Text>
                 {domains.map(d => (
                   <Pressable
                     key={d.id}
                     accessibilityRole="button"
                     onPress={() => setRoute(d.id)}
-                    style={[hs.card, hs.row, { minHeight: 72 }]}
+                    style={({ pressed }) => [
+                      hs.card,
+                      hs.row,
+                      hs.domain,
+                      pressed && hs.pressed,
+                    ]}
                   >
                     {/* 작성자: 고수연 — 아이콘 색을 영역 색에서 받는다. XML 에 색이 박힌
                         healthIcons 와 달리 여기 한 곳만 고치면 된다. */}
@@ -966,7 +848,6 @@ export function HealthScreen({
                     data={data}
                     cards={cards}
                     weight={weightPage.data}
-                    onWater={() => setEntry('water')}
                     periodPicker={
                       <PeriodPicker
                         period={period}
@@ -978,7 +859,12 @@ export function HealthScreen({
                     }
                   />
                 )}
-                <MissionCard category={category} />
+                <MissionRecommendationCard
+                  key={category}
+                  scope={category.toUpperCase()}
+                  active={active}
+                  onOpen={onMissions}
+                />
               </>
             )}
           </>
@@ -992,7 +878,6 @@ function DetailGraphs({
   data,
   cards,
   weight,
-  onWater,
   periodPicker,
 }: {
   route: 'bio' | 'activity' | 'nutrition' | 'sleep';
@@ -1002,7 +887,6 @@ function DetailGraphs({
   cards: Partial<Record<Metric, HealthPage>>;
   // 체중 카드용. 마지막으로 잰 날을 기준으로 받아 온 생체 기록이다.
   weight?: HealthPage;
-  onWater: () => void;
   periodPicker: React.ReactNode;
 }) {
   if (route === 'bio')
@@ -1111,12 +995,11 @@ function DetailGraphs({
                   </Text>
                   <Text style={hs.muted}>
                     {r.date} ·{' '}
-                    {format(
+                    {formatDuration(
                       numeric(r, 'duration_seconds') === null
                         ? null
                         : numeric(r, 'duration_seconds')! / 60,
                     )}
-                    분
                   </Text>
                 </View>
                 <Text style={hs.text}>
@@ -1182,12 +1065,6 @@ function DetailGraphs({
           tableSeries={series(data.water, ['amount_ml'])}
           note="1잔은 250mL예요. 수치표에서는 mL로 확인해요."
         />
-        <Pressable onPress={onWater} style={hs.card}>
-          <Text style={hs.section}>물 섭취 기록 관리 ›</Text>
-          <Text style={hs.muted}>
-            앱에서 추가한 과거 기록도 편집·삭제할 수 있어요.
-          </Text>
-        </Pressable>
       </>
     );
   return (

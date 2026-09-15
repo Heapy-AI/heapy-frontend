@@ -47,6 +47,7 @@ apiClient.interceptors.response.use(
   response => {
     return {
       ...response,
+      heapyMeta: (response.data as ApiEnvelope<unknown>)?.meta,
       data: unwrapApiEnvelope(response.data as ApiEnvelope<unknown>),
     };
   },

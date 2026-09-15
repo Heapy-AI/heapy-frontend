@@ -1,0 +1,32 @@
+# 작성자: 김진우 — 테스트와 fixture는 로컬 전용이며 CI는 컴파일·문법·패키징을 검증한다.
+name: 앱 빌드 검증
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    name: 타입·문법·번들·Android 패키징
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      ENVFILE: .env.example
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: 잠금 파일 기준 의존성 설치
+        run: npm ci
+      - name: 타입·문법·Android 및 iOS 번들 검증
+        run: npm run check:ci
+      - name: Android 네이티브 컴파일 및 APK 패키징
+        working-directory: android
+        run: bash gradlew :app:assembleDebug -PreactNativeArchitectures=arm64-v8a --no-daemon

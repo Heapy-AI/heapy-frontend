@@ -11,10 +11,26 @@ import {
 } from 'react-native';
 import Svg, { Circle, G, Line, Rect, Text as SvgText } from 'react-native-svg';
 import { HealthPage, Series } from './types';
-import { chartDates, format, formatMinutes } from './healthModel';
+import { chartDates, format } from './healthModel';
 import { axisMaximum, lineSegments } from './chartGeometry';
 import { useHealthMotion } from './useHealthMotion';
 import { hs } from './healthStyles';
+import { durationHours, formatHours } from '../../shared/utils/duration';
+
+// 작성자: 김진우 — 그래프·말풍선·수치표는 동일한 시간 단위를 사용하고 원본 계열은 변경하지 않는다.
+const hourlySeries = (items: Series[]) =>
+  items.map(item =>
+    ['분', '초', 'MINUTE', 'SECOND'].includes(item.unit)
+      ? {
+          ...item,
+          unit: '시간',
+          points: item.points.map(point => ({
+            ...point,
+            value: durationHours(point.value, item.unit)!,
+          })),
+        }
+      : item,
+  );
 const AnimatedRect = Animated.createAnimatedComponent(Rect);
 const AnimatedGroup = Animated.createAnimatedComponent(G);
 const palette = [
@@ -30,11 +46,12 @@ const colorOf = (entry: Series, index: number) =>
   entry.color ?? palette[index % palette.length];
 export function HealthChart({
   title,
-  series,
+  series: sourceSeries,
   kind = 'line',
   note,
-  tableSeries,
+  tableSeries: sourceTableSeries,
   period,
+  maximum: sourceMaximum,
 }: {
   title: string;
   series: Series[];
@@ -42,7 +59,17 @@ export function HealthChart({
   note?: string;
   tableSeries?: Series[];
   period?: HealthPage['period'];
+  maximum?: number;
 }) {
+  const series = useMemo(() => hourlySeries(sourceSeries), [sourceSeries]);
+  const tableSeries = useMemo(
+    () => (sourceTableSeries ? hourlySeries(sourceTableSeries) : undefined),
+    [sourceTableSeries],
+  );
+  const maximum =
+    sourceMaximum == null
+      ? sourceMaximum
+      : durationHours(sourceMaximum, sourceSeries[0]?.unit) ?? sourceMaximum;
   const [width, setWidth] = useState(300),
     [zoom, setZoom] = useState(1),
     [table, setTable] = useState(false),
@@ -98,36 +125,32 @@ export function HealthChart({
     right = 12,
     top = 30,
     bottom = 192;
-  // 작성자: 고수연 — 수면처럼 분으로 재는 값은 3시간 간격이 읽기 쉽다.
-  const minuteAxis = series[0]?.unit === '분';
+  // 작성자: 김진우 — 팀원의 3시간 축 간격을 시간 단위로 환산된 계열에 적용한다.
+  const hourAxis = series[0]?.unit === '시간';
   const peak = Math.max(
-      0,
-      ...dates.map(d =>
-        kind === 'stack'
-          ? series.reduce(
-              (sum, s) => sum + (s.points.find(p => p.date === d)?.value ?? 0),
-              0,
-            )
-          : Math.max(
-              0,
-              ...series.map(s => s.points.find(p => p.date === d)?.value ?? 0),
-            ),
-      ),
+    0,
+    ...dates.map(d =>
+      kind === 'stack'
+        ? series.reduce(
+            (sum, s) => sum + (s.points.find(p => p.date === d)?.value ?? 0),
+            0,
+          )
+        : Math.max(
+            0,
+            ...series.map(s => s.points.find(p => p.date === d)?.value ?? 0),
+          ),
+    ),
   );
-  // 축은 3시간 배수로 끊는다. 다만 배수를 넘긴 양이 1시간 이내면 굳이 한 칸을 더 올리지
-  // 않는다. 3시간 5분 때문에 축을 6시간으로 잡으면 막대가 절반밖에 차지 않는다.
-  // 그 경우 값이 축을 조금 넘어서므로 막대는 천장에서 멈춘다(아래 y 함수).
-  const minuteAxisMax = () => {
-    const floor = Math.floor(peak / 180) * 180;
-    return Math.max(180, peak - floor <= 60 ? floor : floor + 180);
-  };
-  const max = minuteAxis ? minuteAxisMax() : axisMaximum(peak);
-  const ticks = minuteAxis
-    ? Array.from({ length: max / 180 + 1 }, (_, i) => (i * 180) / max)
-    : [0, 0.25, 0.5, 0.75, 1];
+  // 작성자: 김진우 — 최댓값까지 축을 올려 수면 막대의 실제 높이가 잘리지 않게 한다.
+  const max =
+    maximum ??
+    (hourAxis ? Math.max(3, Math.ceil(peak / 3) * 3) : axisMaximum(peak));
+  const ticks =
+    hourAxis && maximum == null
+      ? Array.from({ length: max / 3 + 1 }, (_, i) => (i * 3) / max)
+      : [0, 0.25, 0.5, 0.75, 1];
   const slot = (chartWidth - left - right) / Math.max(1, dates.length);
   const x = (i: number) => left + (i + 0.5) * slot,
-    // 값이 축 최대를 조금 넘길 수 있다(위 minuteAxisMax). 그때 막대는 천장에서 멈춘다.
     y = (value: number) =>
       Math.max(top, bottom - (value / max) * (bottom - top));
   const selectedValues = series
@@ -168,7 +191,7 @@ export function HealthChart({
         <Text accessibilityRole="header" style={s.title}>
           {title}
         </Text>
-        {minuteAxis ? null : (
+        {hourAxis ? null : (
           <View style={s.unit}>
             <Text style={s.unitText}>{series[0]?.unit ?? ''}</Text>
           </View>
@@ -179,9 +202,7 @@ export function HealthChart({
         {series.map((a, i) =>
           !a.legendHidden ? (
             <View key={a.key} style={s.legendItem}>
-              <View
-                style={[s.dot, { backgroundColor: colorOf(a, i) }]}
-              />
+              <View style={[s.dot, { backgroundColor: colorOf(a, i) }]} />
               <Text style={s.legendText}>{a.label}</Text>
             </View>
           ) : null,
@@ -211,8 +232,8 @@ export function HealthChart({
                       fontSize={9}
                       fill="#9AA9B1"
                     >
-                      {series[0]?.unit === '분'
-                        ? formatMinutes(max * r)
+                      {hourAxis
+                        ? `${formatHours(max * r)}시간`
                         : format(max * r, max < 10 ? 1 : 0)}
                     </SvgText>
                   </G>
@@ -394,14 +415,10 @@ export function HealthChart({
                       <View style={[s.dot, { backgroundColor: v.color }]} />
                       <Text style={s.tooltipLabel}>{v.series.label}</Text>
                       <Text style={s.tooltipValue}>
-                        {v.series.unit === '분' ? (
-                          formatMinutes(v.point?.value)
-                        ) : (
-                          <>
-                            {format(v.point?.value)}{' '}
-                            <Text style={s.tooltipUnit}>{v.series.unit}</Text>
-                          </>
-                        )}
+                        {v.series.unit === '시간'
+                          ? formatHours(v.point?.value)
+                          : format(v.point?.value)}{' '}
+                        <Text style={s.tooltipUnit}>{v.series.unit}</Text>
                       </Text>
                     </View>
                   ))}
@@ -454,9 +471,10 @@ export function HealthChart({
                 return (
                   <Text key={a.key} style={hs.muted}>
                     {a.label}:{' '}
-                    {a.unit === '분'
-                      ? formatMinutes(p?.value)
-                      : `${format(p?.value)} ${a.unit}`}
+                    {a.unit === '시간'
+                      ? formatHours(p?.value)
+                      : format(p?.value)}{' '}
+                    {a.unit}
                     {p
                       ? ` · 기록 ${p.recordedDays}일 / 구간 ${p.spanDays}일`
                       : ''}
@@ -474,9 +492,11 @@ const s = StyleSheet.create({
   card: {
     padding: 19,
     gap: 14,
-    borderColor: '#F0F4F5',
+    borderColor: '#DFEDF2',
+    borderTopColor: '#FFFFFF',
     borderRadius: 26,
-    boxShadow: '0 8px 28px rgba(38,74,76,0.045)',
+    boxShadow:
+      '0px 8px 20px rgba(47, 123, 158, 0.12), 0px 2px 3px rgba(47, 123, 158, 0.04)',
   },
   title: {
     fontSize: 16,
@@ -488,7 +508,9 @@ const s = StyleSheet.create({
     paddingHorizontal: 9,
     paddingVertical: 4,
     borderRadius: 8,
-    backgroundColor: '#F3F7F7',
+    backgroundColor: '#E7F7F5',
+    borderWidth: 1,
+    borderColor: '#D7EFEA',
   },
   unitText: { fontSize: 10, color: '#8A9C9F', fontWeight: '600' },
   legend: { flexDirection: 'row', gap: 12, flexWrap: 'wrap' },
@@ -515,7 +537,10 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 11,
-    backgroundColor: '#F5F8F8',
+    backgroundColor: '#F0FAF8',
+    borderWidth: 1,
+    borderColor: '#DBEDE8',
+    boxShadow: '0px 2px 5px rgba(40, 129, 130, 0.09)',
   },
   zoomButton: {
     width: 34,

@@ -41,6 +41,13 @@ export const healthApi = {
       })
     ).data;
   },
+  async retryAnalysis(category: Category) {
+    return (
+      await apiClient.post<Analysis>('/api/health/analyses/retry', undefined, {
+        params: { category },
+      })
+    ).data;
+  },
   async create(metric: Metric, body: Record<string, unknown>, key: string) {
     return (
       await apiClient.post(`/api/health/${metric}/records`, body, {

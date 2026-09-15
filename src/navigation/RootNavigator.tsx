@@ -18,6 +18,7 @@ import { BasicProfileScreen } from '../features/onboarding/BasicProfileScreen';
 import { BodyProfileScreen } from '../features/onboarding/BodyProfileScreen';
 import { LifestyleScreen } from '../features/onboarding/LifestyleScreen';
 import { HealthBackgroundScreen } from '../features/onboarding/HealthBackgroundScreen';
+import { ProfileEditScreen } from '../features/my/ProfileEditScreen';
 import { HomeScreen } from '../features/home/HomeScreen';
 import { tokenStorage } from '../shared/storage/tokenStorage';
 import { ApiError, setUnauthorizedHandler } from '../shared/api/client';
@@ -31,6 +32,10 @@ import { CheckupRegistrationScreen } from '../features/dataConnection/CheckupReg
 import { CheckupDetailScreen } from '../features/dataConnection/CheckupDetailScreen';
 import { CheckupHistoryScreen } from '../features/dataConnection/CheckupHistoryScreen';
 import { useReducedMotion } from '../shared/hooks/useReducedMotion';
+import { MedicationScreen } from '../features/medication/MedicationScreen';
+import { MedicationRegistrationScreen } from '../features/medication/MedicationRegistrationScreen';
+import { useMedicationPush } from '../features/medication/useMedicationPush';
+import { NotificationScreen } from '../features/notifications/NotificationScreen';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 export function RootNavigator() {
   const reducedMotion = useReducedMotion();
@@ -38,6 +43,7 @@ export function RootNavigator() {
   const queryClient = useQueryClient();
   const [route, setRoute] = React.useState<RootRoute>();
   const [activeRoute, setActiveRoute] = React.useState<RootRoute>();
+  useMedicationPush(navigation, activeRoute ?? route);
   const [loadError, setLoadError] = React.useState(false);
   const [attempt, setAttempt] = React.useState(0);
   React.useEffect(() => {
@@ -129,6 +135,7 @@ export function RootNavigator() {
             contentStyle: { backgroundColor: 'transparent' },
           }}
         >
+          <Stack.Screen name="Notifications" component={NotificationScreen} />
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Signup" component={SignupScreen} />
           <Stack.Screen name="Terms" component={TermsScreen} />
@@ -138,6 +145,19 @@ export function RootNavigator() {
           <Stack.Screen
             name="HealthBackground"
             component={HealthBackgroundScreen}
+          />
+          <Stack.Screen
+            name="MedicationManagement"
+            component={MedicationScreen}
+          />
+          <Stack.Screen
+            name="MedicationRegistration"
+            component={MedicationRegistrationScreen}
+          />
+          <Stack.Screen
+            name="ProfileEdit"
+            component={ProfileEditScreen}
+            options={{ gestureEnabled: false }}
           />
           <Stack.Screen name="Home" component={HomeScreen} />
           <Stack.Screen name="CheckupDetail" component={CheckupDetailScreen} />

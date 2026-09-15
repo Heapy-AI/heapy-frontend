@@ -78,7 +78,7 @@ export interface UpdateProfileRequest {
   chronicConditions?: ProfileOption[];
   allergies?: ProfileOption[];
   healthCautions?: string;
-  onboardingStep: number;
+  onboardingStep?: number;
 }
 export interface TermsItem {
   termsId: number;
