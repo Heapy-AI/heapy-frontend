@@ -1,4 +1,4 @@
-// 작성자: 김진우 — AI 브리핑을 제외한 홈 카드를 실제 서버 기록과 연결한다.
+// 작성자: 김진우 — 홈 카드와 AI 브리핑을 실제 서버 기록과 연결한다.
 import { MissionSummaryCard } from '../missions/MissionSummaryCard';
 import { NotificationBell } from '../notifications/NotificationBell';
 import { HomeMedicationCard } from '../medication/HomeMedicationCard';
@@ -7,6 +7,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../shared/api/client';
 import { HomeData, formatValue } from './homeData';
 import { WeeklyCard } from './WeeklyCard';
+import { useHomeBriefing } from './useHomeBriefing';
+import { AnalysisDetailModal } from '../../shared/components/AnalysisDetailModal';
 import {
   HomeCardHeading,
   HomeIcon,
@@ -21,7 +23,6 @@ import {
   AppState,
   RefreshControl,
   BackHandler,
-  Modal,
   PanResponder,
   Platform,
   Pressable,
@@ -291,6 +292,8 @@ function DragRow({
 export function HomeDashboard(_props: Props) {
   const briefingPress = usePressFeedback();
   const today = useMedicationToday();
+  const briefing = useHomeBriefing(today, _props.active !== false);
+  const refreshInProgress = React.useRef(false);
   const client = useQueryClient();
   const home = useQuery({
     queryKey: ['home', today],
@@ -313,7 +316,8 @@ export function HomeDashboard(_props: Props) {
     return () => sub.remove();
   }, [_props.active, client]);
   const refresh = async () => {
-    if (refreshing) return;
+    if (refreshInProgress.current) return;
+    refreshInProgress.current = true;
     setRefreshing(true);
     setSyncError('');
     try {
@@ -325,11 +329,19 @@ export function HomeDashboard(_props: Props) {
           : '건강 기록 동기화를 완료하지 못했어요.',
       );
     } finally {
-      await Promise.all([
+      try {
+        await briefing.retryFailed();
+      } catch {
+        setSyncError(
+          previous => previous || '브리핑 재시도 요청을 보내지 못했어요.',
+        );
+      }
+      await Promise.allSettled([
         client.invalidateQueries({ queryKey: ['home'] }),
         client.invalidateQueries({ queryKey: ['medication-intakes'] }),
         client.invalidateQueries({ queryKey: ['health'] }),
       ]);
+      refreshInProgress.current = false;
       setRefreshing(false);
     }
   };
@@ -440,10 +452,10 @@ export function HomeDashboard(_props: Props) {
                   <HomeIcon name="briefing" color="#E2FFFA" size={17} />
                   <Text style={s.whiteSmall}>오늘의 AI 건강 브리핑</Text>
                 </View>
-                <Text style={s.briefingTitle}>
-                  오늘의 건강,{'\n'}한눈에 확인해보세요
-                </Text>
-                <Text style={s.briefChip}>어제보다 수면 +0.7시간</Text>
+                <Text style={s.briefingTitle}>{briefing.headline}</Text>
+                {!!briefing.chip && (
+                  <Text style={s.briefChip}>{briefing.chip}</Text>
+                )}
               </View>
               <CompanionAvatar />
             </LinearGradient>
@@ -927,30 +939,23 @@ export function HomeDashboard(_props: Props) {
           )}
         </View>
       )}
-      <Modal
+      <AnalysisDetailModal
         visible={!!detail}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setDetail(undefined)}
-      >
-        <View style={s.overlay}>
-          <View style={s.card}>
-            <Text style={s.heading}>
-              {detail === '브리핑'
-                ? '오늘의 AI 건강 브리핑'
-                : detail === '검진'
-                ? '최근 건강검진'
-                : detail}
-            </Text>
-            <Text style={s.small}>
-              {detail === '브리핑'
-                ? '수면은 회복 중이고 활동량은 감소했어요.\n수면 7.2시간 · 걸음 5,920보'
-                : '홈 UI 미리보기용 예시 화면입니다.'}
-            </Text>
-            <Action title="확인" onPress={() => setDetail(undefined)} />
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setDetail(undefined)}
+        title={
+          detail === '브리핑'
+            ? '오늘의 AI 건강 브리핑'
+            : detail === '검진'
+            ? '최근 건강검진'
+            : detail ?? ''
+        }
+        body={
+          detail === '브리핑'
+            ? briefing.body
+            : '홈 UI 미리보기용 예시 화면입니다.'
+        }
+        sections={detail === '브리핑' ? briefing.sections : []}
+      />
     </ScreenTransition>
   );
 }

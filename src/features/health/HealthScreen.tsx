@@ -18,6 +18,7 @@ import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import LinearGradient from 'react-native-linear-gradient';
 import { Animated } from 'react-native';
 import { AmbientEffect } from '../../shared/components/AmbientEffect';
+import { AnalysisDetailModal } from '../../shared/components/AnalysisDetailModal';
 import { MetricIcon } from './MetricIcon';
 import { HealthMotionContext, useHealthMotion } from './useHealthMotion';
 import { refreshSamsungConnection } from './healthRefresh';
@@ -105,11 +106,19 @@ type Route =
   | 'activity'
   | 'nutrition'
   | 'sleep';
+const analysisCategories: Category[] = [
+  'overall',
+  'bio',
+  'activity',
+  'nutrition',
+  'sleep',
+  'checkup',
+];
 const analysisMessages = {
   unavailable: '분석 서비스를 연결하고 있어요.',
   pending: '오늘의 분석을 기다리고 있어요.',
   generating: '최근 기록을 분석하고 있어요.',
-  failed: '오늘의 분석을 완료하지 못했어요.',
+  failed: '분석을 완료하지 못했어요. 아래로 당겨 다시 시도해 주세요.',
   result_lost: '오늘의 분석 결과를 불러올 수 없어요.',
   data_insufficient: '분석할 기록이 더 필요해요.',
 };
@@ -121,6 +130,8 @@ function AnalysisCard({
   active?: boolean;
 }) {
   const [day, setDay] = useState(koreanDay());
+  const [detailOpen, setDetailOpen] = useState(false);
+  useEffect(() => setDetailOpen(false), [category, active, day]);
   useEffect(() => {
     const timer = setInterval(() => setDay(koreanDay()), 30000);
     return () => clearInterval(timer);
@@ -128,8 +139,14 @@ function AnalysisCard({
   const query = useQuery({
     queryKey: ['health', 'analysis', category, day],
     queryFn: ({ signal }) => healthApi.analysis(category, signal),
+    enabled: active,
     retry: false,
     staleTime: 60000,
+    refetchInterval: state =>
+      active &&
+      ['pending', 'generating'].includes(state.state.data?.status ?? '')
+        ? 5000
+        : false,
   });
   const data = query.data;
   const valid =
@@ -137,7 +154,7 @@ function AnalysisCard({
     data.analysisDate === day &&
     new Date(data.expiresAt).getTime() > Date.now();
   const text = valid
-    ? data.report?.headline
+    ? data.report?.headline || '오늘의 건강 분석'
     : query.isPending
     ? '분석 결과를 불러오고 있어요.'
     : query.isError
@@ -145,71 +162,87 @@ function AnalysisCard({
     : data?.status && data.status !== 'generated'
     ? analysisMessages[data.status]
     : '오늘의 분석을 기다리고 있어요.';
+  const report = valid ? data.report : undefined;
+  const seen = new Set<string>();
+  const sections = [
+    { label: '현재 상태', text: report?.current_state },
+    { label: '분석 요약', text: report?.summary },
+    { label: '종합 분석', text: report?.overall_analysis },
+    {
+      label: '실천 제안',
+      text: report?.actions?.map(action => `• ${action}`).join('\n'),
+    },
+    {
+      label: '권장 사항',
+      text: report?.recommendations?.map(action => `• ${action}`).join('\n'),
+    },
+  ].filter(section => {
+    if (!section.text || seen.has(section.text)) return false;
+    seen.add(section.text);
+    return true;
+  });
   return (
-    <LinearGradient
-      colors={
-        category === 'sleep'
-          ? ['#8057E0', '#4C83ED']
-          : category === 'nutrition'
-          ? ['#F39A5C', '#EA7D6E']
-          : category === 'checkup'
-          ? ['#7E89F1', '#A06FD5']
-          : ['#24BC94', '#488BFA']
-      }
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 0.6 }}
-      style={{
-        borderRadius: 26,
-        padding: 22,
-        gap: 12,
-        minHeight: 145,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: '#FFFFFF99',
-        boxShadow: '0px 9px 22px rgba(41, 145, 178, 0.23)',
-      }}
-    >
-      <AmbientEffect active={active} testID="health-analysis-wave" />
-      <Text style={[hs.muted, hs.white, { fontSize: 10, letterSpacing: 0.5 }]}>
-        HEAPY AI ·{' '}
-        {category === 'overall' ? '종합 분석' : '최근·장기 기록 분석'}
-      </Text>
-      {query.isError ? (
-        <HealthRequestState
-          title="분석 결과를 불러오지 못했어요"
-          description="잠시 후 다시 시도해 주세요."
-          retry={() => query.refetch()}
-          busy={query.isFetching}
-        />
-      ) : (
-        <Text style={[hs.section, hs.white, { fontSize: 19, lineHeight: 27 }]}>
-          {text}
-        </Text>
-      )}
-      {valid && (
-        <Text style={[hs.text, hs.white]}>
-          {data.report?.current_state ||
-            data.report?.summary ||
-            data.report?.overall_analysis}
-        </Text>
-      )}
-      {valid && category === 'checkup' && !!data.report?.overall_analysis && (
-        <Text style={[hs.text, hs.white]}>{data.report.overall_analysis}</Text>
-      )}
-      {valid &&
-        (data.report?.actions ?? data.report?.recommendations ?? []).map(
-          (action, index) => (
-            <Text key={index} style={[hs.text, hs.white]}>
-              • {action}
-            </Text>
-          ),
-        )}
-      <Text style={[hs.muted, hs.white]}>
-        {valid
-          ? `${data.analysisDate} 기준 · 하루 한 번 분석`
-          : '측정 기록과 분석 결과는 별도로 업데이트돼요.'}
-      </Text>
-    </LinearGradient>
+    <>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={valid ? `${text}, 분석 상세 보기` : text}
+        accessibilityState={{ disabled: !valid && !query.isError }}
+        disabled={!valid && !query.isError}
+        onPress={() => (valid ? setDetailOpen(true) : query.refetch())}
+      >
+        <LinearGradient
+          colors={
+            category === 'sleep'
+              ? ['#8057E0', '#4C83ED']
+              : category === 'nutrition'
+              ? ['#F39A5C', '#EA7D6E']
+              : category === 'checkup'
+              ? ['#7E89F1', '#A06FD5']
+              : ['#24BC94', '#488BFA']
+          }
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0.6 }}
+          style={{
+            borderRadius: 26,
+            padding: 22,
+            gap: 12,
+            minHeight: 145,
+            overflow: 'hidden',
+            borderWidth: 1,
+            borderColor: '#FFFFFF99',
+            boxShadow: '0px 9px 22px rgba(41, 145, 178, 0.23)',
+          }}
+        >
+          <AmbientEffect active={active} testID="health-analysis-wave" />
+          <Text
+            style={[hs.muted, hs.white, { fontSize: 10, letterSpacing: 0.5 }]}
+          >
+            HEAPY AI ·{' '}
+            {category === 'overall' ? '종합 분석' : '최근·장기 기록 분석'}
+          </Text>
+          <Text
+            numberOfLines={2}
+            ellipsizeMode="tail"
+            style={[hs.section, hs.white, { fontSize: 19, lineHeight: 27 }]}
+          >
+            {text}
+          </Text>
+          <Text style={[hs.muted, hs.white]}>
+            {valid
+              ? `${data.analysisDate} 기준 · 자세히 보기 ›`
+              : query.isError
+              ? '눌러서 다시 불러오기'
+              : '측정 기록과 분석 결과는 별도로 업데이트돼요.'}
+          </Text>
+        </LinearGradient>
+      </Pressable>
+      <AnalysisDetailModal
+        visible={detailOpen && active && !!valid}
+        title={text ?? '오늘의 건강 분석'}
+        sections={sections}
+        onClose={() => setDetailOpen(false)}
+      />
+    </>
   );
 }
 function MetricCard({
@@ -353,13 +386,28 @@ export function HealthScreen({
     route === 'all';
   // 작성자: 김진우 — 실제 동기화가 완료된 뒤 서버 기록을 다시 조회한다.
   const refresh = async () => {
-    if (refreshing || isCheckup) return;
+    if (refreshing) return;
     setRefreshing(true);
     setSyncError('');
     setSyncNotice('');
     try {
-      const result = await refreshSamsungConnection(setSyncNotice);
-      setSyncNotice(result.message);
+      // 작성자: 김진우 — 삼성헬스 실패와 무관하게 모든 영역의 실패 분석을 재시도한다.
+      const results = await Promise.allSettled([
+        ...analysisCategories.map(async target => {
+          const result = await healthApi.retryAnalysis(target);
+          const key = ['health', 'analysis', target, result.analysisDate];
+          await client.cancelQueries({ queryKey: key });
+          client.setQueryData(key, result);
+        }),
+        isCheckup
+          ? Promise.resolve()
+          : (async () => {
+              const result = await refreshSamsungConnection(setSyncNotice);
+              setSyncNotice(result.message);
+            })(),
+      ]);
+      const failure = results.find(result => result.status === 'rejected');
+      if (failure?.status === 'rejected') throw failure.reason;
     } catch (error) {
       setSyncNotice('');
       setSyncError(
@@ -395,13 +443,11 @@ export function HealthScreen({
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={hs.content}
         refreshControl={
-          isCheckup ? undefined : (
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={refresh}
-              tintColor="#20BA8A"
-            />
-          )
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={refresh}
+            tintColor="#20BA8A"
+          />
         }
       >
         <View style={[hs.between, { flexWrap: 'wrap' }]}>
@@ -428,7 +474,7 @@ export function HealthScreen({
                 : domains.find(d => d.id === route)?.title}
             </Text>
           </View>
-          {route !== 'entries' && !isCheckup && (
+          {route !== 'entries' && (
             <View style={hs.row}>
               <Pressable
                 accessibilityRole="button"
@@ -458,7 +504,7 @@ export function HealthScreen({
             {syncNotice}
           </Text>
         )}
-        {!isCheckup && !!syncError && (
+        {!!syncError && (
           <Text accessibilityRole="alert" style={hs.error}>
             {syncError}
           </Text>
