@@ -1,4 +1,3 @@
-import type { LifestyleScoreReport } from './lifestyleScoreModel';
 import { apiClient } from '../../shared/api/client';
 import {
   Analysis,
@@ -7,15 +6,11 @@ import {
   HealthRecord,
   Metric,
   PeriodCode,
+  ScoreReport,
 } from './types';
 
 // 작성자: 김진우 — 기존 공통 인증·응답 처리를 재사용한다. 조회로 AI 생성을 요청하지 않는다.
 export const healthApi = {
-  async score(signal?: AbortSignal) {
-    return (
-      await apiClient.get<LifestyleScoreReport>('/api/health/score', { signal })
-    ).data;
-  },
   async page(
     metric: Metric,
     period: PeriodCode,
@@ -26,6 +21,15 @@ export const healthApi = {
       await apiClient.get<HealthPage>(`/api/health/${metric}`, {
         signal,
         params: { period, ...params },
+      })
+    ).data;
+  },
+  // 작성자: 고수연 — 오늘의 건강 종합 점수. 서버가 하루 한 번 확정해 저장한 값을 읽기만 한다.
+  async score(period: string, signal?: AbortSignal) {
+    return (
+      await apiClient.get<ScoreReport>('/api/health/score', {
+        signal,
+        params: { period },
       })
     ).data;
   },

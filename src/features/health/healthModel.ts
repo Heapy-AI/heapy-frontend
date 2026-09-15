@@ -1,4 +1,5 @@
 import { HealthPage, HealthRecord, PeriodCode, Series } from './types';
+import { formatDuration } from '../../shared/utils/duration';
 export const periods: { code: PeriodCode; label: string }[] = [
   { code: '7d', label: '7일' },
   { code: '30d', label: '30일' },
@@ -14,6 +15,11 @@ export const format = (value: unknown, digits = 1): string =>
   typeof value === 'number' && Number.isFinite(value)
     ? value.toLocaleString('ko-KR', { maximumFractionDigits: digits })
     : '—';
+// 작성자: 김진우 — 기존 분 포맷 호출도 공통 시간 표시 규칙을 따른다.
+export const formatMinutes = (value: unknown): string => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
+  return formatDuration(value);
+};
 export const numeric = (row: HealthRecord, key: string): number | null =>
   typeof row.values[key] === 'number' ? (row.values[key] as number) : null;
 export const latest = (page: HealthPage | undefined, key: string) =>
@@ -227,32 +233,64 @@ export function chartDates(
   }
   return [...dates].sort();
 }
-// 작성자: 김진우 — 단계별 누락이 있는 날은 수면 구성에서 제외하고 같은 날짜 집합으로 평균한다.
+// 작성자: 고수연 — 수면 구성. 단계가 없는 기록도 수면시간으로 함께 보여준다.
+//
+// 워치가 잰 밤에는 단계가 있고, 삼성헬스에 직접 입력한 밤에는 없다. 예전에는 그날 기록이
+// 하나라도 단계가 없으면 그날 전체를 뺐는데, 그러면 워치 기록과 직접 입력이 섞인 날은
+// 멀쩡한 단계까지 버려져 그래프에 며칠씩 구멍이 났다.
+//
+// 단계 합과 총 수면시간은 늘 조금 어긋나지만(깨어 있던 시간 처리 차이) 그 차이를 메우는
+// 층을 따로 쌓지는 않는다. 막대는 어디까지나 구성을 대략 보여주는 것이다.
 export function sleepStages(page?: HealthPage): Series[] {
   if (!page || page.dataTruncated) return [];
+  // 색은 개발자 모니터링 UI의 sleep-stages 팔레트를 그대로 쓴다. 두 화면이 같은 값을
+  // 다른 색으로 보여주면 견주기 어렵다. 깊을수록 진하고 뒤척임만 색을 갈라 둔다.
   const fields = [
-    ['deep_sleep_minutes', '깊은 수면'],
-    ['rem_sleep_minutes', '렘 수면'],
-    ['light_sleep_minutes', '얕은 수면'],
-    ['awake_minutes', '깨어 있음'],
+    ['deep_sleep_minutes', '깊은 수면', '#3816BA'],
+    ['light_sleep_minutes', '얕은 수면', '#7653F4'],
+    ['rem_sleep_minutes', '렘 수면', '#B19FF7'],
+    ['awake_minutes', '깨어 있음', '#FF5E8E'],
   ] as const;
-  const days = [...new Set(page.records.map(r => r.date))].filter(date =>
-    page.records
-      .filter(r => r.date === date)
-      .every(r => fields.every(([key]) => numeric(r, key) !== null)),
-  );
-  return fields.map(([key, label]) => {
+  const staged = (record: HealthRecord) =>
+    fields.every(([key]) => numeric(record, key) !== null);
+  const days = [...new Set(page.records.map(r => r.date))];
+  // 단계가 없는 기록의 수면시간. 라벨을 비워 범례에는 올리지 않고 색으로만 구분한다.
+  const columns: Array<
+    readonly [string, string, string, (r: HealthRecord) => number]
+  > = [
+    ...fields.map(
+      ([key, label, color]) =>
+        [
+          key,
+          label,
+          color,
+          (r: HealthRecord) => (staged(r) ? numeric(r, key) ?? 0 : 0),
+        ] as const,
+    ),
+    // 직접 입력한 밤. 얕은 수면과 같은 계열이되 훨씬 옅게 해서 단계 기록과 구분한다.
+    // 범례에는 올리지 않고 말풍선에서만 이름을 밝힌다.
+    [
+      'manual_sleep_minutes',
+      '직접 입력',
+      '#DDD5FA',
+      (r: HealthRecord) =>
+        staged(r) ? 0 : numeric(r, 'total_sleep_minutes') ?? 0,
+    ] as const,
+  ];
+  return columns.map(([key, label, color, pick]) => {
     const groups = new Map<string, number[]>();
     for (const date of days) {
       const value = page.records
         .filter(r => r.date === date)
-        .reduce((n, r) => n + (numeric(r, key) ?? 0), 0);
+        .reduce((n, r) => n + pick(r), 0);
       const b = bucket(date, page.period.aggregation);
       groups.set(b, [...(groups.get(b) ?? []), value]);
     }
     return {
       key,
       label,
+      color,
+      legendHidden: key === 'manual_sleep_minutes',
       unit: '분',
       dailyAggregation: 'sum',
       points: [...groups].sort().map(([date, values]) => ({

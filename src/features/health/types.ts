@@ -37,6 +37,10 @@ export type Series = {
   unit: string;
   dailyAggregation: string;
   points: Point[];
+  // 작성자: 고수연 — 계열이 직접 색을 정할 때 쓴다. 없으면 차트 기본 팔레트를 따른다.
+  color?: string;
+  // 범례에서만 감춘다. 말풍선과 표에는 이름이 그대로 나온다.
+  legendHidden?: boolean;
 };
 export type HealthPage = {
   metric: Metric;
@@ -81,3 +85,27 @@ export type EntryKind =
   | 'body_composition'
   | 'water'
   | 'blood_glucose';
+
+// 작성자: 고수연 — GET /api/health/score 응답. 백엔드 LifestyleScore.Report와 같은 모양이다.
+export type ScoreComponent = {
+  score: number | null;
+  recordedDays: number;
+  requiredDays: number;
+};
+export type ScoreDay = {
+  date: string;
+  // 기록이 모자라면 null이다. 그때 reasons에 이유가 담긴다.
+  score: number | null;
+  sleep: ScoreComponent;
+  activity: ScoreComponent;
+  bmiScore: number | null;
+  bmiDate: string | null;
+  reasons: string[];
+};
+export type ScoreReport = {
+  policyVersion: string;
+  timezone: string;
+  period: { code: string; from: string; to: string; aggregation: string };
+  latest: ScoreDay;
+  points: ScoreDay[];
+};

@@ -105,6 +105,8 @@ yarn-error.log
 !/LICENCE*
 !/NOTICE*
 !/COPYING*
+# 작성자: 김진우 — 팀원 변경에 맞춰 최상위 안내 문서를 포함한다.
+!/README.md
 .agents/
 .codex/
 
