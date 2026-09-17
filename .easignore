@@ -1,0 +1,148 @@
+# OSX
+#
+.DS_Store
+
+# Xcode
+#
+build/
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata
+*.xccheckout
+*.moved-aside
+DerivedData
+*.hmap
+*.ipa
+*.xcuserstate
+**/.xcode.env.local
+
+# Android/IntelliJ
+#
+build/
+.idea
+.gradle
+local.properties
+*.iml
+*.hprof
+.cxx/
+*.keystore
+.kotlin/
+
+# node.js
+#
+node_modules/
+.env
+.idea/
+.vscode/
+*.log
+coverage/
+android/.gradle/
+android/app/build/
+android/app/*.jks
+android/app/*.keystore
+.scaffold/
+npm-debug.log
+yarn-error.log
+
+# fastlane
+#
+# It is recommended to not store the screenshots in the git repo. Instead, use fastlane to re-generate the
+# screenshots whenever they are needed.
+# For more information about the recommended setup visit:
+# https://docs.fastlane.tools/best-practices/source-control/
+
+**/fastlane/report.xml
+**/fastlane/Preview.html
+**/fastlane/screenshots
+**/fastlane/test_output
+
+# Bundle artifact
+*.jsbundle
+
+# Ruby / CocoaPods
+**/Pods/
+/vendor/bundle/
+
+# Temporary files created by Metro to check the health of the file watcher
+.metro-health-check*
+
+# testing
+/coverage
+
+# Yarn
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# 로컬 문서 및 작업 자료
+# 작성자: 김진우
+/docs/
+/Reference/
+/preview/
+/artifacts/
+/__tests__/
+/jest.config.js
+/fixtures/
+/screenshots/
+/reports/
+/tmp/
+/temp/
+/scratch/
+/dev-tools/
+/*.md
+/*.mdx
+# 작성자: 김진우 — 실행용 문서·데이터와 라이선스는 확장자로 일괄 제외하지 않는다.
+!/LICENSE*
+!/LICENCE*
+!/NOTICE*
+!/COPYING*
+# 작성자: 김진우 — 팀원 변경에 맞춰 최상위 안내 문서를 포함한다.
+!/README.md
+.agents/
+.codex/
+
+# 작성자: 김진우 — 로컬 캐시와 가상환경
+.cache/
+.npm/
+.parcel-cache/
+.turbo/
+.vite/
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.eslintcache
+
+# 환경별 비밀 설정
+.env.*
+!.env.example
+*.pem
+*.p12
+*.mobileprovision
+
+# 실행 로그 및 테스트 생성물
+*.log.*
+logs/
+test-results/
+playwright-report/
+blob-report/
+*.tsbuildinfo
+
+# 작성자: 김진우 — 푸시 프로젝트 설정은 각 개발 환경에서 제공한다.
+/android/app/google-services.json
+**/*firebase-adminsdk*.json
+
+!.env
