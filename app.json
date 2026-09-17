@@ -1,4 +1,9 @@
 {
   "name": "Heapy",
-  "displayName": "Heapy"
+  "displayName": "Heapy",
+  "extra": {
+    "eas": {
+      "projectId": "19793cd1-56af-46eb-9f49-6144d68565c6"
+    }
+  }
 }
