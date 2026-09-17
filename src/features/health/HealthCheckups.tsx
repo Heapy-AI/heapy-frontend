@@ -279,6 +279,7 @@ function Compare({
       ),
     ),
   ];
+
   return (
     <View style={cs.section}>
       <LinearGradient
@@ -297,9 +298,33 @@ function Compare({
           </View>
         </View>
         <Text style={cs.description}>
-          두 회차의 수치와 기관 판정을 함께 살펴보세요.
+          두 회차의 수치 변화를 비교해보세요.
         </Text>
       </LinearGradient>
+
+      {/* 검진 회차 정보는 수치 카드 위에서 한 번만 표시 */}
+      <View style={cs.period}>
+        <View style={cs.periodItem}>
+          <Text style={cs.periodLabel}>이전 검진</Text>
+          <Text style={cs.periodDate}>
+            {before?.measuredAt || '날짜 미제공'}
+          </Text>
+        </View>
+
+        <View accessible={false} style={cs.periodArrow}>
+          <Text style={cs.periodArrowText}>→</Text>
+        </View>
+
+        <View style={[cs.periodItem, cs.periodCurrent]}>
+          <Text style={[cs.periodLabel, cs.periodCurrentLabel]}>
+            현재 검진
+          </Text>
+          <Text style={cs.periodDate}>
+            {current?.measuredAt || '날짜 미제공'}
+          </Text>
+        </View>
+      </View>
+
       {codes.map((code, index) => {
         const a = before?.results.find(r => r.itemCode === code),
           b = current?.results.find(r => r.itemCode === code);
@@ -309,55 +334,85 @@ function Compare({
           same && numeric
             ? Number(b.numericValue) - Number(a.numericValue)
             : null;
+
+        const changeText =
+          change !== null
+            ? `${change > 0 ? '+' : ''}${format(change)}${b?.unit ? ` ${b.unit}` : ''}`
+            : null;
+
         return (
+          
           <View key={code} style={cs.card}>
             <View style={cs.heading}>
-              <View style={cs.number}>
-                <Text style={cs.numberText}>
-                  {String(index + 1).padStart(2, '0')}
+              <View style={cs.headingMain}>
+                <View style={cs.number}>
+                  <Text style={cs.numberText}>
+                    {String(index + 1).padStart(2, '0')}
+                  </Text>
+                </View>
+                <Text style={cs.itemName}>
+                  {b?.itemName || a?.itemName}
                 </Text>
               </View>
-              <Text style={cs.itemName}>{b?.itemName || a?.itemName}</Text>
+
+              {changeText && (
+                <Text style={cs.changeValue}>{changeText}</Text>
+              )}
             </View>
+
             <View style={cs.values}>
-              <View style={cs.previous}>
-                <Text style={cs.label}>이전 검진</Text>
-                <Text style={cs.date}>
-                  {before?.measuredAt || '날짜 미제공'}
-                </Text>
-                <Text style={cs.value}>{a?.value ?? '미기록'}</Text>
-                {!!a?.unit && <Text style={cs.unit}>{a.unit}</Text>}
-                <CheckupStatusBadge status={a?.status ?? null} />
+              <View
+                style={[
+                  cs.previous,
+                  a && {
+                    backgroundColor: checkupTone(a.status).background,
+                    borderColor: checkupTone(a.status).border,
+                  },
+                ]}
+              >
+                <View style={cs.valueGroup}>
+                  <Text
+                    style={[
+                      cs.value,
+                      a
+                        ? { color: checkupTone(a.status || '판정 미제공').color }
+                        : undefined,
+                    ]}
+                  >
+                    {a?.value ?? '미기록'}
+                  </Text>
+                  {!!a?.unit && <Text style={cs.unit}>{a.unit}</Text>}
+                </View>
               </View>
-              <View style={cs.current}>
-                <Text style={[cs.label, cs.purple]}>현재 검진</Text>
-                <Text style={cs.date}>
-                  {current?.measuredAt || '날짜 미제공'}
-                </Text>
-                <Text style={[cs.value, cs.purple]}>
-                  {b?.value ?? '미기록'}
-                </Text>
-                {!!b?.unit && <Text style={cs.unit}>{b.unit}</Text>}
-                <CheckupStatusBadge status={b?.status ?? null} />
+
+              <View
+                style={[
+                  cs.current,
+                  b && {
+                    backgroundColor: checkupTone(b.status).background,
+                    borderColor: checkupTone(b.status).border,
+                  },
+                ]}
+              >
+                <View style={cs.valueGroup}>
+                  <Text
+                    style={[
+                      cs.value,
+                      b
+                        ? { color: checkupTone(b.status || '판정 미제공').color }
+                        : undefined,
+                    ]}
+                  >
+                    {b?.value ?? '미기록'}
+                  </Text>
+                  {!!b?.unit && <Text style={cs.unit}>{b.unit}</Text>}
+                </View>
               </View>
+
               <View accessible={false} style={cs.arrow}>
                 <Text style={cs.arrowText}>→</Text>
               </View>
             </View>
-            <View style={cs.change}>
-              <Text style={cs.changeLabel}>수치 차이</Text>
-              <Text style={cs.changeValue}>
-                {change !== null
-                  ? `${change > 0 ? '+' : ''}${format(change)} ${b?.unit}`
-                  : a && b && !same
-                  ? '단위가 달라 수치 비교 불가'
-                  : '비교 수치 미제공'}
-              </Text>
-            </View>
-            <Text style={cs.statusChange}>
-              기관 판정 · {a?.status || '판정 미제공'} →{' '}
-              {b?.status || '판정 미제공'}
-            </Text>
           </View>
         );
       })}
@@ -365,7 +420,6 @@ function Compare({
   );
 }
 
-// 작성자: 김진우 — 증감은 중립색으로 표시하고 현재 회차의 시각적 강조와 분리한다.
 const cs = StyleSheet.create({
   section: { gap: 14 },
   summary: {
@@ -391,6 +445,50 @@ const cs = StyleSheet.create({
   },
   countText: { fontSize: 11, fontWeight: '700', color: '#756095' },
   description: { fontSize: 12, lineHeight: 19, color: '#827893' },
+
+  // 이전/현재 검진 정보는 모든 수치 카드의 상단에서 한 번만 표시
+  period: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F7F8FB',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    gap: 10,
+  },
+  periodItem: {
+    flex: 1,
+    minWidth: 0,
+    gap: 3,
+  },
+  periodCurrent: {
+    alignItems: 'flex-end',
+  },
+  periodLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#83909F',
+  },
+  periodCurrentLabel: {
+    color: '#7653A5',
+  },
+  periodDate: {
+    fontSize: 11,
+    color: '#6F7888',
+  },
+  periodArrow: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  periodArrowText: {
+    color: '#9F8AB9',
+    fontSize: 15,
+  },
+
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
@@ -402,7 +500,19 @@ const cs = StyleSheet.create({
     boxShadow:
       '0px 8px 20px rgba(127, 100, 177, 0.13), 0px 2px 3px rgba(127, 100, 177, 0.05)',
   },
-  heading: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  heading: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  headingMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+    minWidth: 0,
+  },
   number: {
     width: 30,
     height: 30,
@@ -420,14 +530,29 @@ const cs = StyleSheet.create({
     color: '#514268',
     flex: 1,
   },
-  values: { flexDirection: 'row', gap: 12, position: 'relative' },
+  changeValue: {
+    fontSize: 12,
+    lineHeight: 21,
+    fontWeight: '700',
+    color: '#64728A',
+    flexShrink: 0,
+    textAlign: 'right',
+  },
+  values: {
+    flexDirection: 'row',
+    gap: 12,
+    position: 'relative',
+  },
   previous: {
     flex: 1,
     minWidth: 0,
     backgroundColor: '#F5F7FA',
     borderRadius: 17,
     padding: 12,
-    gap: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 76,
   },
   current: {
     flex: 1,
@@ -435,27 +560,33 @@ const cs = StyleSheet.create({
     backgroundColor: '#EEE4FF',
     borderRadius: 17,
     padding: 12,
-    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 76,
     borderWidth: 1,
     borderColor: '#E4D8F6',
     boxShadow: '0px 3px 7px rgba(137, 107, 184, 0.09)',
   },
-  label: { fontSize: 11, fontWeight: '700', color: '#83909F' },
-  date: { fontSize: 10, color: '#8A92A3' },
+  valueGroup: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+  },
   value: {
     fontSize: 27,
     lineHeight: 34,
     fontWeight: '800',
-    color: '#657185',
-    marginTop: 4,
   },
-  purple: { color: '#7653A5' },
-  unit: { fontSize: 11, color: '#8A92A3' },
+  unit: {
+    fontSize: 11,
+    color: '#8A92A3',
+  },
   arrow: {
     position: 'absolute',
     left: '50%',
-    top: 71,
+    top: '50%',
     marginLeft: -12,
+    marginTop: -12,
     width: 24,
     height: 24,
     borderRadius: 12,
@@ -464,28 +595,4 @@ const cs = StyleSheet.create({
     justifyContent: 'center',
   },
   arrowText: { color: '#9F8AB9', fontSize: 15 },
-  change: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: '#F7F8FB',
-  },
-  changeLabel: { fontSize: 11, color: '#8B93A2' },
-  changeValue: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#64728A',
-    flexShrink: 1,
-  },
-  statusChange: {
-    fontSize: 11,
-    lineHeight: 17,
-    color: '#9097A5',
-    paddingHorizontal: 2,
-  },
 });
