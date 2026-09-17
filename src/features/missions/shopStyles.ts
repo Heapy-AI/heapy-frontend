@@ -1,0 +1,56 @@
+// 작성자: 김진우 — APK 바이트코드에 남아 있는 원래 스타일 값을 복원한다.
+import { StyleSheet } from 'react-native';
+
+export const ss = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#F4FAF8' },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  back: { fontSize: 32, color: '#17342D' },
+  coin: {
+    borderRadius: 20,
+    backgroundColor: '#FFF3CF',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  coinText: { fontWeight: '700', color: '#A67518' },
+  tabs: { flexDirection: 'row', gap: 8 },
+  tab: { flex: 1, padding: 13, alignItems: 'center', borderRadius: 18 },
+  selected: { backgroundColor: '#FFF' },
+  hero: { borderRadius: 28, padding: 20, alignItems: 'center', gap: 10 },
+  cat: { width: 220, height: 220, borderRadius: 24 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  product: {
+    width: '48%',
+    flexGrow: 1,
+    padding: 16,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: '#E3EDE9',
+    backgroundColor: '#FFF',
+    alignItems: 'center',
+    gap: 8,
+  },
+  productSelected: { borderColor: '#25B991', backgroundColor: '#F1FCF7' },
+  productImage: { width: 100, height: 95 },
+  action: { padding: 18, borderRadius: 22, alignItems: 'center' },
+  actionText: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  disabled: { opacity: 0.5 },
+  confirm: {
+    gap: 14,
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: '#F0F8F4',
+  },
+  bannerImage: { width: 90, height: 100 },
+  reward: { color: '#A67518' },
+});

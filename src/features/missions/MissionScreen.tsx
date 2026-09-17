@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { formatDurationText } from '../../shared/utils/duration';
 import {
   AppState,
+  Image,
   Platform,
   BackHandler,
   Modal,
@@ -34,6 +35,10 @@ import { HealthEntry } from '../health/HealthEntry';
 import { EntryKind } from '../health/types';
 import { apiClient } from '../../shared/api/client';
 import { MissionRecommendationCard } from './MissionRecommendationCard';
+import { MissionShop } from './MissionShop';
+import { shopApi, shopKeys } from './shopApi';
+import { baseCat, shopAssets } from './shopAssets';
+import { ss } from './shopStyles';
 
 export function MissionScreen({
   active,
@@ -51,6 +56,24 @@ export function MissionScreen({
   const today = useMedicationToday(),
     client = useQueryClient(),
     insets = useSafeAreaInsets();
+  // 작성자: 김진우 — 코디샵과 미션 완료 보상을 원래 화면 흐름에 연결한다.
+  const [shopVisible, setShopVisible] = useState(false);
+  const [completedReward, setCompletedReward] = useState<number | null>(null);
+  const wallet = useQuery({
+    queryKey: [...shopKeys, 'wallet'],
+    queryFn: shopApi.wallet,
+    enabled: active,
+    retry: false,
+  });
+  const wardrobe = useQuery({
+    queryKey: [...shopKeys, 'wardrobe'],
+    queryFn: shopApi.wardrobe,
+    enabled: active,
+    retry: false,
+  });
+  const equipped = wardrobe.data?.items.find(
+    item => item.itemId === wardrobe.data?.equippedItemId,
+  );
   const [selectedDate, setSelectedDate] = useState(today);
   const [recommendScope, setRecommendScope] = useState('ACTIVITY');
   const [recordKind, setRecordKind] = useState<EntryKind | null>(null);
@@ -122,11 +145,18 @@ export function MissionScreen({
   useEffect(() => {
     const sub = AppState.addEventListener('change', state => {
       if (state === 'active' && active)
-        void client.invalidateQueries({ queryKey: missionKeys });
+        void Promise.all([
+          client.invalidateQueries({ queryKey: missionKeys }),
+          client.invalidateQueries({ queryKey: shopKeys }),
+        ]);
     });
     return () => sub.remove();
   }, [active, client]);
-  const refresh = () => client.invalidateQueries({ queryKey: missionKeys });
+  const refresh = () =>
+    Promise.all([
+      client.invalidateQueries({ queryKey: missionKeys }),
+      client.invalidateQueries({ queryKey: shopKeys }),
+    ]);
   const invalidate = () =>
     Promise.all([refresh(), client.invalidateQueries({ queryKey: ['home'] })]);
   const open = (id: string) => {
@@ -145,6 +175,9 @@ export function MissionScreen({
       );
       client.setQueryData([...missionKeys, 'detail', mission.missionId], saved);
       setDifficulty(saved.feedback ?? null);
+      setCompletedReward(
+        saved.status === 'COMPLETED' ? saved.rewardCoins ?? 10 : null,
+      );
       setSheet(saved.status === 'COMPLETED');
       await invalidate();
     } catch (e) {
@@ -212,6 +245,38 @@ export function MissionScreen({
         </View>
         {page === 'list' && (
           <>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="코인샵과 내 옷장 열기"
+              onPress={() => setShopVisible(true)}
+            >
+              <LinearGradient
+                colors={['#E4F8EF', '#E8F0FF']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[ms.card, ms.between]}
+              >
+                <View style={ms.flex}>
+                  <Text style={ms.green}>히피 코디샵</Text>
+                  <Text style={ms.title}>
+                    {wallet.isPending
+                      ? '코인 불러오는 중…'
+                      : wallet.data
+                      ? `${wallet.data.balance.toLocaleString()} 코인`
+                      : '— 코인'}
+                  </Text>
+                  <Text style={ms.muted}>
+                    미션 완료하고 10코인씩 · 상점 구경하기 ›
+                  </Text>
+                </View>
+                <Image
+                  source={shopAssets[equipped?.assetKey ?? '']?.cat ?? baseCat}
+                  style={ss.bannerImage}
+                  resizeMode="contain"
+                  accessibilityLabel={equipped?.name ?? '기본 코디'}
+                />
+              </LinearGradient>
+            </Pressable>
             <View style={ms.card}>
               <View style={ms.between}>
                 <Text style={ms.text}>
@@ -393,6 +458,11 @@ export function MissionScreen({
                   </View>
                   <View style={ms.flex}>
                     <Text style={ms.text}>{formatDurationText(m.title)}</Text>
+                    {m.status !== 'EXPIRED' && (
+                      <Text style={ms.green}>
+                        완료 보상 {m.rewardCoins ?? 10}코인
+                      </Text>
+                    )}
                     <Text style={ms.muted}>
                       {unitText(m, m.currentValue)} /{' '}
                       {unitText(m, m.targetValue)}
@@ -728,6 +798,10 @@ export function MissionScreen({
           </Pressable>
         </View>
       </Modal>
+      <MissionShop
+        visible={active && shopVisible}
+        onClose={() => setShopVisible(false)}
+      />
       <Modal
         visible={sheet}
         transparent
@@ -752,7 +826,16 @@ export function MissionScreen({
                 height={100}
               />
               <Text style={ms.title}>미션을 완료했어요</Text>
-              <Text style={ms.muted}>작은 행동이 건강한 흐름을 만들어요</Text>
+              {completedReward !== null && (
+                <Text style={[ms.title, ss.reward]}>
+                  완료 보상 +{completedReward}코인
+                </Text>
+              )}
+              <Text style={ms.muted}>
+                {wallet.data
+                  ? `보유 ${wallet.data.balance.toLocaleString()}코인`
+                  : '잔액은 코인샵에서 확인할 수 있어요.'}
+              </Text>
             </View>
             <Text style={ms.text}>오늘 미션은 어땠나요?</Text>
             <View style={ms.row}>
