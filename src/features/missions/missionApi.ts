@@ -12,6 +12,7 @@ export type Mission = {
   category: string;
   scope?: string;
   unit: string;
+  rewardCoins?: number;
   targetValue: number;
   currentValue: number;
   progressPercent: number;
