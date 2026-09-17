@@ -1,4 +1,3 @@
-// 작성자: 김진우 — APK의 코디샵 구성·문구와 원본 이미지를 복원한다.
 import React, { useRef, useState } from 'react';
 import {
   Image,
