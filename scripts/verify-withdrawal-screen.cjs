@@ -9,11 +9,13 @@ const { create, act } = require('react-test-renderer');
 const { QueryClient, QueryClientProvider } = require('@tanstack/react-query');
 global.IS_REACT_ACT_ENVIRONMENT = true;
 const tick = () => new Promise(resolve => setTimeout(resolve, 20));
+class ApiError extends Error {
+  constructor(code, message) { super(message); this.code = code; }
+}
 
 async function mount({ remove = async () => {}, clear = async () => {} } = {}) {
   const events = [];
   let back;
-  class ApiError extends Error {}
   const mocks = {
     react: React,
     'react-native': {
@@ -52,6 +54,7 @@ async function mount({ remove = async () => {}, clear = async () => {} } = {}) {
   });
   const button = label => screen.root.findAllByType('Pressable').find(node => node.props.accessibilityLabel === label);
   return { events, client, back: () => back(), button,
+    text: () => screen.root.findAllByType('Text').map(node => node.props.children).join(' '),
     consent: () => screen.root.findByProps({ accessibilityRole: 'checkbox' }),
     press: async node => { await act(async () => { node.props.onPress(); await tick(); }); },
     close: async () => { await act(async () => screen.unmount()); client.clear(); },
@@ -115,3 +118,19 @@ test('서버 삭제 후 기기 정리 실패는 삭제 반복 없이 정리만 �
   assert.equal(ui.events.at(-1), 'Login');
   await ui.close();
 });
+
+for (const [code, expected] of [
+  ['WITHDRAWAL-001', '분석이 끝난 후'],
+  ['WITHDRAWAL-002', '고객 지원에 문의'],
+  ['COMMON-500', '탈퇴 완료를 확인하지 못했어요'],
+]) {
+  test(`${code} 안내를 표시하고 내부 오류는 노출하지 않음`, async () => {
+    const ui = await mount({ remove: async () => { throw new ApiError(code, '비공개 SQL 정보'); } });
+    await ui.press(ui.consent());
+    await ui.press(ui.button('탈퇴하기'));
+    assert.ok(ui.text().includes(expected));
+    assert.ok(!ui.text().includes('비공개 SQL 정보'));
+    assert.deepEqual(ui.events, ['삭제']);
+    await ui.close();
+  });
+}

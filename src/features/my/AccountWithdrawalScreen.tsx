@@ -74,8 +74,10 @@ export function AccountWithdrawalScreen({ navigation }: Props) {
     ? accountDeleted.current
       ? '계정은 삭제됐지만 기기 정보 정리에 실패했어요. 아래 버튼을 눌러 다시 시도해 주세요.'
       : withdrawal.error instanceof ApiError &&
-        withdrawal.error.code === 'WITHDRAWAL-001'
-      ? withdrawal.error.message
+        ['WITHDRAWAL-001', 'WITHDRAWAL-002'].includes(withdrawal.error.code)
+      ? withdrawal.error.code === 'WITHDRAWAL-001'
+        ? '분석 중인 건강검진이 있어요. 분석이 끝난 후 다시 시도해 주세요.'
+        : '업로드 파일 정리를 확인해야 해요. 고객 지원에 문의해 주세요.'
       : '탈퇴 완료를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.'
     : undefined;
 
