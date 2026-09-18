@@ -50,16 +50,27 @@ class SamsungHealthModule(private val context: ReactApplicationContext) : ReactC
     private val permissions = permissionByType.values.toSet()
 
     /**
-     * 작성자: 고수연 — 삼성 헬스 설정 화면 후보.
+     * 작성자: 고수연 — 삼성 헬스 안쪽 화면 후보. 가까운 곳부터 짚는다.
      *
-     * 삼성이 이 화면을 여는 인텐트를 공개한 적이 없어 내부 액티비티 이름을 짚어 본다. 버전마다
-     * 이름이 바뀌고 대부분 exported 가 아니라 밖에서 못 연다. 그래서 확인 후 안 되면 홈으로
-     * 보낸다. 되는 기기에서는 두 번 덜 누르고, 안 되는 기기에서도 막다른 길이 없다.
+     * 패키지는 com.sec.android.app.shealth 인데 클래스는 com.samsung.android.app.shealth 로
+     * 시작한다. 접두어가 달라 헷갈리기 쉽다. 실제 이름은 기기에서 확인한 것이다.
+     *
+     * `dumpsys package com.sec.android.app.shealth` 로 목록을 볼 수 있다.
+     *
+     * 삼성이 이 화면들을 여는 인텐트를 공개한 적은 없다. 버전이 오르면 이름이 바뀌거나
+     * exported 가 아니게 될 수 있어, 열기 전에 확인하고 안 되면 다음 후보로 넘어간다.
+     * 모두 실패하면 앱 홈으로 보낸다. 되는 기기에서는 단계를 건너뛰고, 안 되는 기기에서도
+     * 막다른 길이 없다.
      */
-    private val settingsCandidates = listOf(
-        "com.sec.android.app.shealth.settings.SettingsActivity",
-        "com.sec.android.app.shealth.home.settings.SettingsActivity",
-        "com.sec.android.app.shealth.settings.HomeSettingsActivity",
+    private val landings = listOf(
+        // 개발자 모드 화면 그 자체. 열리면 10번 터치가 필요 없다.
+        "developer" to "com.samsung.android.app.shealth.data.phd.PhdDeveloperModeActivity",
+        // SDK 개발 정책 화면. '데이터 읽기' 허용이 여기 붙어 있다.
+        "policy" to "com.samsung.android.app.shealth.data.policy.SdkDevPolicyActivity",
+        // 'Samsung Health 정보'. 버전 글자를 10번 누르는 그 화면이다.
+        "about" to "com.samsung.android.app.shealth.home.settings.info.about.HomeSettingsAboutActivity",
+        // 설정 첫 화면. 여기서 맨 아래로 내려가야 한다.
+        "settings" to "com.samsung.android.app.shealth.home.settings.HomeSettingsMainActivity",
     )
     private val store by lazy { HealthDataService.getStore(context, scope) }
     private var requestingPermissions = false
@@ -112,10 +123,10 @@ class SamsungHealthModule(private val context: ReactApplicationContext) : ReactC
     }
 
     /**
-     * 삼성 헬스를 연다. 설정 화면으로 갔으면 "settings", 홈으로 갔으면 "home" 을 돌려준다.
+     * 삼성 헬스를 연다. 어느 화면까지 갔는지 돌려준다.
      *
-     * 화면이 그 값에 따라 안내 문구를 바꾼다. 어디에 떨어졌는지 앱이 알아야 "설정을 누르세요"
-     * 를 넣을지 말지 정할 수 있다.
+     * "developer" · "policy" · "about" · "settings" · "home" 중 하나다. 앞쪽일수록 목적지에
+     * 가깝다. 화면이 이 값에 따라 남은 단계만 안내할 수 있다.
      *
      * @author 고수연
      */
@@ -127,15 +138,14 @@ class SamsungHealthModule(private val context: ReactApplicationContext) : ReactC
             return
         }
         val manager = context.packageManager
-        for (name in settingsCandidates) {
+        for ((landing, name) in landings) {
             val intent = Intent().setClassName(SAMSUNG_HEALTH, name)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             // exported 가 아니면 여는 순간 SecurityException 이다. 미리 걸러 예외를 만들지 않는다.
             val info = manager.resolveActivity(intent, 0)?.activityInfo ?: continue
             if (!info.exported) continue
-            val opened = runCatching { activity.startActivity(intent) }.isSuccess
-            if (opened) {
-                promise.resolve("settings")
+            if (runCatching { activity.startActivity(intent) }.isSuccess) {
+                promise.resolve(landing)
                 return
             }
         }

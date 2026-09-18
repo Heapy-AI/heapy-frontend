@@ -18,23 +18,17 @@ import {
   View,
 } from 'react-native';
 import { colors } from '../../shared/theme/tokens';
-import { openSamsungHealth, SamsungLanding } from './samsungHealth';
+import { openSamsungHealth } from './samsungHealth';
 
 // 삼성 헬스에서 밟아야 하는 순서. 4번이 이 안내의 핵심이라 그림을 붙인다.
+// 권한 허용은 여기 적지 않는다. 돌아오면 이 앱이 알아서 다시 묻는다.
 const STEPS = [
   '삼성 헬스를 엽니다.',
   '오른쪽 위 ⋮ 를 눌러 설정으로 들어갑니다.',
   '맨 아래 “Samsung Health 정보”를 누릅니다.',
   '“버전” 항목을 10번 연속 누릅니다.',
-  '새로 생긴 “개발자 모드”를 켭니다.',
-  '“데이터 읽기”를 허용합니다.',
+  '“개발자 모드”로 전환되었는지 확인합니다.',
 ];
-
-// 어디에 떨어졌는지에 따라 다음에 할 일이 다르다.
-const LANDED: Record<SamsungLanding, string> = {
-  settings: '설정 화면이 열렸어요. 맨 아래 “Samsung Health 정보”를 눌러 주세요.',
-  home: '삼성 헬스가 열렸어요. 오른쪽 위 ⋮ → 설정 → 맨 아래 “Samsung Health 정보” 순서로 들어가 주세요.',
-};
 
 export function SamsungSetupGuide({
   visible,
@@ -46,15 +40,13 @@ export function SamsungSetupGuide({
   // 삼성 헬스로 나갔음을 알린다. 부모가 돌아오는 순간을 지켜보다 권한 요청을 다시 띄운다.
   onLeave?: () => void;
 }) {
-  const [landed, setLanded] = useState<string>('');
   const [error, setError] = useState('');
   const open = async () => {
     setError('');
     try {
-      setLanded(LANDED[await openSamsungHealth()]);
+      await openSamsungHealth();
       onLeave?.();
     } catch (failure) {
-      setLanded('');
       setError(
         failure instanceof Error
           ? failure.message
@@ -76,10 +68,6 @@ export function SamsungSetupGuide({
             showsVerticalScrollIndicator={false}
           >
             <Text style={styles.title}>삼성 헬스 연동 방법</Text>
-            <Text style={styles.lead}>
-              삼성 헬스가 건강 기록을 내어 주려면 앱 안에서 “데이터 읽기”를 한
-              번 켜 주셔야 해요. 아래 순서를 따라 주세요.
-            </Text>
             {STEPS.map((step, index) => (
               <View key={step} style={styles.step}>
                 <View style={styles.badge}>
@@ -99,7 +87,6 @@ export function SamsungSetupGuide({
               “Samsung Health 정보” 화면의 버전 글자를 10번 누르면 개발자 모드가
               나타나요.
             </Text>
-            {!!landed && <Text style={styles.landed}>{landed}</Text>}
             {!!error && (
               <Text accessibilityRole="alert" style={styles.error}>
                 {error}
@@ -122,9 +109,6 @@ export function SamsungSetupGuide({
               <Text style={styles.primaryLabel}>설정하러 가기</Text>
             </Pressable>
           </View>
-          <Text style={styles.footnote}>
-            설정을 마치고 돌아오시면 권한 요청이 다시 떠요.
-          </Text>
         </View>
       </View>
     </Modal>
@@ -149,7 +133,6 @@ const styles = StyleSheet.create({
   },
   body: { gap: 12, paddingBottom: 4 },
   title: { fontSize: 19, fontWeight: '800', color: colors.text },
-  lead: { fontSize: 13, lineHeight: 20, color: colors.textMuted },
   step: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   badge: {
     width: 22,
@@ -171,14 +154,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F4F7F6',
   },
   caption: { fontSize: 12, lineHeight: 18, color: colors.textMuted },
-  landed: {
-    fontSize: 13,
-    lineHeight: 20,
-    color: colors.primaryDark,
-    backgroundColor: '#E8F2ED',
-    borderRadius: 14,
-    padding: 12,
-  },
   error: { fontSize: 13, lineHeight: 20, color: colors.danger },
   actions: { flexDirection: 'row', gap: 10 },
   button: {
@@ -192,10 +167,4 @@ const styles = StyleSheet.create({
   ghostLabel: { fontSize: 15, fontWeight: '700', color: colors.primaryDark },
   primary: { backgroundColor: colors.primary },
   primaryLabel: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
-  footnote: {
-    fontSize: 11,
-    lineHeight: 17,
-    color: colors.textMuted,
-    textAlign: 'center',
-  },
 });
