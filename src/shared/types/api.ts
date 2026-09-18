@@ -23,6 +23,7 @@ export interface ApiErrorBody {
 }
 export interface Tokens {
   nextStep?: NextStep;
+  onboardingStep?: number;
   accessToken: string;
   refreshToken: string;
   tokenType: string;

@@ -18,6 +18,7 @@ type Props = {
   description: string;
   confirmLabel: string;
   pending?: boolean;
+  allowCancel?: boolean;
   pendingLabel?: string;
   tone?: 'primary' | 'danger';
   error?: string;
@@ -30,6 +31,7 @@ export function ConfirmModal({
   description,
   confirmLabel,
   pending,
+  allowCancel = true,
   pendingLabel,
   tone = 'primary',
   error,
@@ -43,7 +45,7 @@ export function ConfirmModal({
       visible={visible}
       animationType={reduced ? 'none' : 'fade'}
       onRequestClose={() => {
-        if (!pending) onCancel();
+        if (!pending && allowCancel) onCancel();
       }}
     >
       <View style={[s.overlay, tone === 'danger' && s.dangerOverlay]}>
@@ -63,19 +65,21 @@ export function ConfirmModal({
               </Text>
             )}
             <View style={s.actions}>
-              <Pressable
-                accessibilityRole="button"
-                disabled={pending}
-                onPress={onCancel}
-                style={({ pressed }) => [
-                  s.button,
-                  s.cancel,
-                  pressed && s.pressed,
-                  pending && s.disabled,
-                ]}
-              >
-                <Text style={s.cancelText}>취소</Text>
-              </Pressable>
+              {allowCancel && (
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={pending}
+                  onPress={onCancel}
+                  style={({ pressed }) => [
+                    s.button,
+                    s.cancel,
+                    pressed && s.pressed,
+                    pending && s.disabled,
+                  ]}
+                >
+                  <Text style={s.cancelText}>취소</Text>
+                </Pressable>
+              )}
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={

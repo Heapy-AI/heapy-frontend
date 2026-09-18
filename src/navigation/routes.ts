@@ -21,6 +21,7 @@ export type RootStackParamList = {
     | undefined;
   MedicationRegistration: { medicationId?: string } | undefined;
   ProfileEdit: undefined;
+  AccountWithdrawal: undefined;
   Notifications: undefined;
   Home: undefined;
 };

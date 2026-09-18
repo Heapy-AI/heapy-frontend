@@ -7,6 +7,7 @@ import {
 import { ApiError, apiClient } from '../../shared/api/client';
 import { heapyApi } from '../../shared/api/heapyApi';
 import { tokenStorage } from '../../shared/storage/tokenStorage';
+import { getValidSession } from '../../shared/api/authSession';
 import { createIdempotencyKey } from '../../shared/utils/idempotency';
 
 type Registration = {
@@ -38,7 +39,7 @@ export async function connectMedicationPush(
   }
   if (pendingSync) return pendingSync;
   const task = (async () => {
-    const tokens = await tokenStorage.get();
+    const tokens = await getValidSession();
     if (!tokens) return;
     const headers = {
       Authorization: `${tokens.tokenType || 'Bearer'} ${tokens.accessToken}`,

@@ -1,5 +1,5 @@
 import { apiClient } from '../../shared/api/client';
-import { tokenStorage } from '../../shared/storage/tokenStorage';
+import { getValidSession } from '../../shared/api/authSession';
 import { HealthConnection, SamsungPermission } from './types';
 import { createIdempotencyKey } from '../../shared/utils/idempotency';
 
@@ -36,7 +36,7 @@ const config = (authorization: string) => ({
 // 작성자: 김진우 — 동기화 시작 계정의 인증을 고정한다. 요청 직전에 공통 인터셉터가 계정 변경을 검사한다.
 export const healthSyncApi = {
   async session() {
-    const tokens = await tokenStorage.get();
+    const tokens = await getValidSession();
     if (!tokens) throw new Error('로그인 후 건강 기록을 동기화해 주세요.');
     return `${tokens.tokenType || 'Bearer'} ${tokens.accessToken}`;
   },

@@ -39,6 +39,14 @@ type Options = {
 };
 let flight: { auth: string; promise: Promise<Result> } | undefined;
 let recent: { auth: string; at: number } | undefined;
+let sessionGeneration = 0;
+
+/** 탈퇴 시 이전 계정의 동기화 상태와 토큰 참조를 비운다. 작성자: 김진우 */
+export function clearSamsungSyncState() {
+  sessionGeneration++;
+  recent = undefined;
+  flight = undefined;
+}
 const day = (time: number) =>
   new Date(time + 9 * 3600000).toISOString().slice(0, 10);
 const shiftDay = (date: string, days: number) =>
@@ -68,6 +76,7 @@ export async function syncSamsungHealth(
 }
 
 async function execute(auth: string, options: Options): Promise<Result> {
+  const generation = sessionGeneration;
   const timings: Record<string, number> = {};
   const measure = async <T>(
     name: string,
@@ -81,6 +90,8 @@ async function execute(auth: string, options: Options): Promise<Result> {
     }
   };
   const guard = async () => {
+    if (generation !== sessionGeneration)
+      throw new Error('탈퇴한 계정의 동기화를 중단했어요.');
     if ((await measure('session', () => healthSyncApi.session())) !== auth)
       throw new Error('로그인 계정이 변경되어 동기화를 중단했어요.');
     if (AppState.currentState && AppState.currentState !== 'active')

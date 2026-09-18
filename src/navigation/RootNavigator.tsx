@@ -18,9 +18,12 @@ import { BasicProfileScreen } from '../features/onboarding/BasicProfileScreen';
 import { BodyProfileScreen } from '../features/onboarding/BodyProfileScreen';
 import { LifestyleScreen } from '../features/onboarding/LifestyleScreen';
 import { HealthBackgroundScreen } from '../features/onboarding/HealthBackgroundScreen';
+import { AccountWithdrawalScreen } from '../features/my/AccountWithdrawalScreen';
 import { ProfileEditScreen } from '../features/my/ProfileEditScreen';
 import { HomeScreen } from '../features/home/HomeScreen';
 import { tokenStorage } from '../shared/storage/tokenStorage';
+import { getValidSession } from '../shared/api/authSession';
+import { WelcomeScreen } from '../features/auth/WelcomeScreen';
 import { ApiError, setUnauthorizedHandler } from '../shared/api/client';
 import { PrimaryButton } from '../shared/components/PrimaryButton';
 import { onboardingDraft } from '../features/onboarding/onboardingDraft';
@@ -38,6 +41,8 @@ import { useMedicationPush } from '../features/medication/useMedicationPush';
 import { NotificationScreen } from '../features/notifications/NotificationScreen';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 export function RootNavigator() {
+  const [welcomeDone, setWelcomeDone] = React.useState(false);
+  const finishWelcome = React.useCallback(() => setWelcomeDone(true), []);
   const reducedMotion = useReducedMotion();
   const navigation = useNavigationContainerRef<RootStackParamList>();
   const queryClient = useQueryClient();
@@ -62,22 +67,18 @@ export function RootNavigator() {
     });
     (async () => {
       try {
-        const tokens = await tokenStorage.get();
+        const tokens = await getValidSession();
         if (!tokens) {
           if (active) setRoute('Login');
           return;
         }
         if (!active) return;
-        if (
-          !tokens.nextStep ||
-          !tokens.expiresAt ||
-          Date.parse(tokens.expiresAt) <= Date.now()
-        ) {
-          await tokenStorage.clear();
-          if (active) setRoute('Login');
-          return;
-        }
-        setRoute(routeForNextStep(tokens.nextStep, 1));
+        setRoute(
+          routeForNextStep(
+            tokens.nextStep || 'profile',
+            tokens.onboardingStep || 1,
+          ),
+        );
       } catch (error) {
         if (!active) return;
         if (error instanceof ApiError && error.status === 401)
@@ -89,10 +90,14 @@ export function RootNavigator() {
       active = false;
     };
   }, [attempt, navigation, queryClient]);
+  if (!welcomeDone) return <WelcomeScreen onComplete={finishWelcome} />;
   if (loadError)
     return (
       <View style={styles.loading}>
-        <Text>로그인 정보를 읽지 못했습니다. 다시 로그인해 주세요.</Text>
+        <Text style={styles.errorCopy}>
+          로그인 상태를 확인하지 못했어요.{`\n`}연결 상태를 확인한 뒤 다시
+          시도해 주세요.
+        </Text>
         <PrimaryButton
           label="다시 시도"
           onPress={() => setAttempt(value => value + 1)}
@@ -100,8 +105,13 @@ export function RootNavigator() {
         <PrimaryButton
           label="로그인 화면으로"
           onPress={() => {
-            setLoadError(false);
-            setRoute('Login');
+            tokenStorage
+              .clear()
+              .then(() => {
+                setLoadError(false);
+                setRoute('Login');
+              })
+              .catch(() => setLoadError(true));
           }}
         />
       </View>
@@ -159,6 +169,11 @@ export function RootNavigator() {
             component={ProfileEditScreen}
             options={{ gestureEnabled: false }}
           />
+          <Stack.Screen
+            name="AccountWithdrawal"
+            component={AccountWithdrawalScreen}
+            options={{ gestureEnabled: false }}
+          />
           <Stack.Screen name="Home" component={HomeScreen} />
           <Stack.Screen name="CheckupDetail" component={CheckupDetailScreen} />
           <Stack.Screen
@@ -183,6 +198,12 @@ export function RootNavigator() {
   );
 }
 const styles = StyleSheet.create({
+  errorCopy: {
+    color: colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 20,
+  },
   loading: {
     flex: 1,
     alignItems: 'center',
