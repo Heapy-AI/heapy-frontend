@@ -63,15 +63,15 @@ class SamsungHealthModule(private val context: ReactApplicationContext) : ReactC
      * 막다른 길이 없다.
      */
     private val landings = listOf(
-        // 개발자 모드 화면 그 자체. 열리면 10번 터치가 필요 없다.
-        "developer" to "com.samsung.android.app.shealth.data.phd.PhdDeveloperModeActivity",
-        // SDK 개발 정책 화면. '데이터 읽기' 허용이 여기 붙어 있다.
-        "policy" to "com.samsung.android.app.shealth.data.policy.SdkDevPolicyActivity",
-        // 'Samsung Health 정보'. 버전 글자를 10번 누르는 그 화면이다.
+        // 'Samsung Health 정보'. 버전 글자를 10번 누르는 그 화면이다. 여기가 목적지다.
         "about" to "com.samsung.android.app.shealth.home.settings.info.about.HomeSettingsAboutActivity",
         // 설정 첫 화면. 여기서 맨 아래로 내려가야 한다.
         "settings" to "com.samsung.android.app.shealth.home.settings.HomeSettingsMainActivity",
     )
+    // 개발자 모드 화면(data.phd.PhdDeveloperModeActivity)은 후보에서 뺐다. 삼성 헬스가
+    // ComponentEnabler 로 그 컴포넌트를 켜고 끄기 때문에, 개발자 모드가 꺼져 있으면
+    // resolveActivity 가 null 을 준다. 즉 처음 켜는 데는 쓸 수 없고, 이미 켜져 있을 때
+    // 열어도 할 일이 없다. 10번 터치는 사용자가 해야 한다.
     private val store by lazy { HealthDataService.getStore(context, scope) }
     private var requestingPermissions = false
 
@@ -125,8 +125,8 @@ class SamsungHealthModule(private val context: ReactApplicationContext) : ReactC
     /**
      * 삼성 헬스를 연다. 어느 화면까지 갔는지 돌려준다.
      *
-     * "developer" · "policy" · "about" · "settings" · "home" 중 하나다. 앞쪽일수록 목적지에
-     * 가깝다. 화면이 이 값에 따라 남은 단계만 안내할 수 있다.
+     * "about" · "settings" · "home" 중 하나다. 앞쪽일수록 목적지에 가깝다. 화면이 이 값에
+     * 따라 남은 단계만 안내할 수 있다.
      *
      * @author 고수연
      */
@@ -259,7 +259,14 @@ class SamsungHealthModule(private val context: ReactApplicationContext) : ReactC
                 runCatching { error.resolve(activity) }
             }
         }
-        promise.reject("SAMSUNG_${code ?: "UNAVAILABLE"}", message)
+        // 작성자: 고수연 — 개발자 모드 때문이라는 것을 화면이 알아야 안내를 띄울 수 있다.
+        // ErrorCode 를 그대로 붙이면 SDK 가 열거형인지 정수 상수인지에 따라 문자열이 달라져
+        // 화면 쪽 판정이 조용히 빗나간다. 이 한 갈래만 이름을 못 박는다.
+        val key = when (code) {
+            ErrorCode.ERR_ACCESS_CONTROL, ErrorCode.ERR_INVALID_CALLER -> "SAMSUNG_DEVELOPER_MODE"
+            else -> "SAMSUNG_${code ?: "UNAVAILABLE"}"
+        }
+        promise.reject(key, message)
     }
 
     private companion object {

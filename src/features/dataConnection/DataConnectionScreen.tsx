@@ -19,7 +19,9 @@ import { dataConnectionApi } from './dataConnectionApi';
 import {
   requestSamsungPermissions,
   hasRequiredSamsungPermissions,
+  needsDeveloperMode,
   readSamsungTodaySteps,
+  SAMSUNG_BETA_DEVELOPER_MODE,
 } from './samsungHealth';
 import { SamsungSetupGuide } from './SamsungSetupGuide';
 import { SamsungSteps } from './types';
@@ -253,7 +255,9 @@ export function DataConnectionScreen({
             {permissionGranted
               ? '읽기 권한은 허용됐지만 건강 기록 동기화를 완료하지 못했어요. '
               : ''}
-            {connect.error.message}
+            {needsDeveloperMode(connect.error)
+              ? SAMSUNG_BETA_DEVELOPER_MODE
+              : connect.error.message}
           </Text>
         )}
         {/* 작성자: 고수연 — 연결이 막히는 가장 흔한 이유가 개발자 모드다. 오류가 났을 때만
