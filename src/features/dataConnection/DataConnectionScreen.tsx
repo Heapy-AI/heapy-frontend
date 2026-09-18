@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  AppState,
   Image,
   Pressable,
   StyleSheet,
@@ -20,6 +21,7 @@ import {
   hasRequiredSamsungPermissions,
   readSamsungTodaySteps,
 } from './samsungHealth';
+import { SamsungSetupGuide } from './SamsungSetupGuide';
 import { SamsungSteps } from './types';
 import LinearGradient from 'react-native-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
@@ -32,6 +34,10 @@ export function DataConnectionScreen({
   const [todaySteps, setTodaySteps] = useState<SamsungSteps>();
   const [syncProgress, setSyncProgress] = useState('');
   const [permissionGranted, setPermissionGranted] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
+  // 작성자: 고수연 — 삼성 헬스로 내보낸 뒤 돌아오는 순간을 지킨다. 설정을 마치고 왔는데
+  // 다시 '연결하기'를 찾아 눌러야 한다면 안내한 보람이 없다.
+  const leftForSamsung = useRef(false);
   const readSteps = useMutation({
     mutationFn: readSamsungTodaySteps,
     onSuccess: setTodaySteps,
@@ -79,6 +85,16 @@ export function DataConnectionScreen({
       client.invalidateQueries({ queryKey: ['health'] });
     },
   });
+  useEffect(() => {
+    const listener = AppState.addEventListener('change', state => {
+      if (state !== 'active' || !leftForSamsung.current) return;
+      leftForSamsung.current = false;
+      setGuideOpen(false);
+      // 이미 돌고 있으면 또 부르지 않는다. 권한 창이 두 번 뜬다.
+      if (!connect.isPending) connect.mutate();
+    });
+    return () => listener.remove();
+  }, [connect]);
   const connected =
     connections.data?.some(
       item =>
@@ -240,6 +256,15 @@ export function DataConnectionScreen({
             {connect.error.message}
           </Text>
         )}
+        {/* 작성자: 고수연 — 연결이 막히는 가장 흔한 이유가 개발자 모드다. 오류가 났을 때만
+            띄우지 않고 늘 둔다. 처음 연결하는 사람도 미리 보고 준비할 수 있어야 한다. */}
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setGuideOpen(true)}
+          style={styles.guideButton}
+        >
+          <Text style={styles.guideLabel}>연동이 안 되나요? 설정 방법 보기</Text>
+        </Pressable>
         {connections.isError && (
           <Pressable
             accessibilityRole="button"
@@ -254,6 +279,13 @@ export function DataConnectionScreen({
           연결 시 건강 기록의 읽기 권한을 요청해요.
         </Text>
       </LinearGradient>
+      <SamsungSetupGuide
+        visible={guideOpen}
+        onClose={() => setGuideOpen(false)}
+        onLeave={() => {
+          leftForSamsung.current = true;
+        }}
+      />
     </ConnectionLayout>
   );
 }
@@ -468,4 +500,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   error: { color: '#FFE0E2', fontSize: 13, lineHeight: 20 },
+  guideButton: { minHeight: 44, justifyContent: 'center', alignItems: 'center' },
+  guideLabel: {
+    color: '#DFF3EA',
+    fontSize: 13,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
+  },
 });

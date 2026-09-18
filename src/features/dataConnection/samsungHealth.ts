@@ -31,6 +31,21 @@ export async function requestSamsungPermissions(): Promise<SamsungPermission> {
   return result;
 }
 
+// 작성자: 고수연 — 삼성 헬스를 연다. 설정 화면까지 갔으면 'settings', 홈이면 'home'.
+// 삼성이 설정 화면으로 가는 인텐트를 공개하지 않아 기기마다 갈린다. 어디에 떨어졌는지에 따라
+// 안내 문구가 달라진다.
+export type SamsungLanding = 'settings' | 'home';
+export async function openSamsungHealth(): Promise<SamsungLanding> {
+  if (Platform.OS !== 'android')
+    throw new Error('삼성헬스 연결은 Android 휴대폰에서 사용할 수 있어요.');
+  const bridge = NativeModules.HeapySamsungHealth;
+  if (!bridge?.openSamsungHealth)
+    throw new Error(
+      '이 앱 버전에서는 바로 열 수 없어요. 삼성 헬스를 직접 실행해 주세요.',
+    );
+  return bridge.openSamsungHealth();
+}
+
 export async function readSamsungTodaySteps(): Promise<SamsungSteps> {
   if (
     Platform.OS !== 'android' ||

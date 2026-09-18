@@ -1,6 +1,8 @@
 package com.heapy.app
 
+import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.Intent
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
@@ -46,6 +48,19 @@ class SamsungHealthModule(private val context: ReactApplicationContext) : ReactC
         "nutrition" to Permission.of(DataTypes.NUTRITION, AccessType.READ),
     )
     private val permissions = permissionByType.values.toSet()
+
+    /**
+     * 작성자: 고수연 — 삼성 헬스 설정 화면 후보.
+     *
+     * 삼성이 이 화면을 여는 인텐트를 공개한 적이 없어 내부 액티비티 이름을 짚어 본다. 버전마다
+     * 이름이 바뀌고 대부분 exported 가 아니라 밖에서 못 연다. 그래서 확인 후 안 되면 홈으로
+     * 보낸다. 되는 기기에서는 두 번 덜 누르고, 안 되는 기기에서도 막다른 길이 없다.
+     */
+    private val settingsCandidates = listOf(
+        "com.sec.android.app.shealth.settings.SettingsActivity",
+        "com.sec.android.app.shealth.home.settings.SettingsActivity",
+        "com.sec.android.app.shealth.settings.HomeSettingsActivity",
+    )
     private val store by lazy { HealthDataService.getStore(context, scope) }
     private var requestingPermissions = false
 
@@ -93,6 +108,47 @@ class SamsungHealthModule(private val context: ReactApplicationContext) : ReactC
             } finally {
                 requestingPermissions = false
             }
+        }
+    }
+
+    /**
+     * 삼성 헬스를 연다. 설정 화면으로 갔으면 "settings", 홈으로 갔으면 "home" 을 돌려준다.
+     *
+     * 화면이 그 값에 따라 안내 문구를 바꾼다. 어디에 떨어졌는지 앱이 알아야 "설정을 누르세요"
+     * 를 넣을지 말지 정할 수 있다.
+     *
+     * @author 고수연
+     */
+    @ReactMethod
+    fun openSamsungHealth(promise: Promise) {
+        val activity = context.currentActivity
+        if (activity == null) {
+            promise.reject("SAMSUNG_ACTIVITY", "앱 화면에서 다시 시도해 주세요.")
+            return
+        }
+        val manager = context.packageManager
+        for (name in settingsCandidates) {
+            val intent = Intent().setClassName(SAMSUNG_HEALTH, name)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            // exported 가 아니면 여는 순간 SecurityException 이다. 미리 걸러 예외를 만들지 않는다.
+            val info = manager.resolveActivity(intent, 0)?.activityInfo ?: continue
+            if (!info.exported) continue
+            val opened = runCatching { activity.startActivity(intent) }.isSuccess
+            if (opened) {
+                promise.resolve("settings")
+                return
+            }
+        }
+        val launch = manager.getLaunchIntentForPackage(SAMSUNG_HEALTH)
+        if (launch == null) {
+            promise.reject("SAMSUNG_NOT_INSTALLED", "삼성 헬스를 설치한 뒤 다시 시도해 주세요.")
+            return
+        }
+        try {
+            activity.startActivity(launch)
+            promise.resolve("home")
+        } catch (error: ActivityNotFoundException) {
+            promise.reject("SAMSUNG_NOT_INSTALLED", "삼성 헬스를 설치한 뒤 다시 시도해 주세요.")
         }
     }
 
@@ -194,6 +250,10 @@ class SamsungHealthModule(private val context: ReactApplicationContext) : ReactC
             }
         }
         promise.reject("SAMSUNG_${code ?: "UNAVAILABLE"}", message)
+    }
+
+    private companion object {
+        const val SAMSUNG_HEALTH = "com.sec.android.app.shealth"
     }
 
     override fun invalidate() {
