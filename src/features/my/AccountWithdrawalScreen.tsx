@@ -101,26 +101,48 @@ export function AccountWithdrawalScreen({ navigation }: Props) {
         <View style={s.back} />
       </View>
       <ScrollView contentContainerStyle={s.content}>
-        <Text style={s.eyebrow}>탈퇴 전 확인해 주세요</Text>
-        <Text accessibilityRole="header" style={s.title}>
-          탈퇴하면 아래 정보가{`\n`}모두 삭제돼요
-        </Text>
-        <Text style={s.intro}>
-          HEAPY에 저장된 계정과 활동 정보가 삭제되며, 삭제된 정보는 복구할 수
-          없어요.
-        </Text>
+        <View style={s.hero}>
+          <View pointerEvents="none" style={s.heroDecoration} />
+          <View style={s.eyebrowBadge}>
+            <View style={s.eyebrowDot} />
+            <Text style={s.eyebrow}>탈퇴 전 확인해 주세요</Text>
+          </View>
+          <Text accessibilityRole="header" style={s.title}>
+            탈퇴하면 아래 정보가{`\n`}모두 삭제돼요
+          </Text>
+          <Text style={s.intro}>
+            HEAPY에 저장된 계정과 활동 정보가 삭제되며, 삭제된 정보는 복구할 수
+            없어요.
+          </Text>
+        </View>
+        <View style={s.sectionHeading}>
+          <Text style={s.sectionTitle}>삭제되는 정보</Text>
+          <Text style={s.sectionBadge}>4개 항목</Text>
+        </View>
         <View style={s.card}>
           {deletionItems.map(([title, description], index) => (
             <View key={title} style={[s.item, index > 0 && s.itemBorder]}>
-              <Text style={s.itemTitle}>{title}</Text>
-              <Text style={s.itemDescription}>{description}</Text>
+              <View style={s.itemNumberTile}>
+                <Text style={s.itemNumber}>
+                  {String(index + 1).padStart(2, '0')}
+                </Text>
+              </View>
+              <View style={s.itemCopy}>
+                <Text style={s.itemTitle}>{title}</Text>
+                <Text style={s.itemDescription}>{description}</Text>
+              </View>
             </View>
           ))}
         </View>
         <View style={s.notice}>
-          <Text style={s.noticeTitle}>
-            다시 가입해도 이전 정보는 돌아오지 않아요
-          </Text>
+          <View style={s.noticeHeading}>
+            <View style={s.noticeIcon}>
+              <Text style={s.noticeIconText}>!</Text>
+            </View>
+            <Text style={s.noticeTitle}>
+              다시 가입해도 이전 정보는 돌아오지 않아요
+            </Text>
+          </View>
           <Text style={s.noticeText}>
             보유 코인과 구매한 아이템도 복구할 수 없어요. 삼성헬스 앱에 저장된
             원본 정보는 삭제되지 않아요.
@@ -145,6 +167,7 @@ export function AccountWithdrawalScreen({ navigation }: Props) {
             {agreed && <Text style={s.checkmark}>✓</Text>}
           </View>
           <Text style={s.consentText}>
+            <Text style={s.required}>[필수] </Text>
             삭제 안내를 확인했으며{`\n`}회원 탈퇴에 동의합니다.
           </Text>
         </Pressable>
@@ -176,7 +199,7 @@ export function AccountWithdrawalScreen({ navigation }: Props) {
           ]}
         >
           {withdrawal.isPending && <ActivityIndicator color={colors.surface} />}
-          <Text style={s.submitText}>
+          <Text style={[s.submitText, disabled && s.submitTextDisabled]}>
             {withdrawal.isPending
               ? '정보를 삭제하고 있어요'
               : accountDeleted.current
@@ -190,13 +213,16 @@ export function AccountWithdrawalScreen({ navigation }: Props) {
 }
 
 const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
+  screen: { flex: 1, backgroundColor: '#F6F8F9' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     height: 56,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EDF0F2',
   },
   back: {
     width: 44,
@@ -206,32 +232,115 @@ const s = StyleSheet.create({
   },
   backText: { fontSize: 36, color: colors.text },
   headerTitle: { fontSize: 17, fontWeight: '700', color: colors.text },
-  content: { padding: 24, paddingTop: 20, paddingBottom: 32 },
+  content: {
+    padding: 20,
+    paddingTop: 20,
+    paddingBottom: 32,
+    width: '100%',
+    maxWidth: 520,
+    alignSelf: 'center',
+  },
+  hero: {
+    padding: 22,
+    borderRadius: 26,
+    backgroundColor: '#EAF6F2',
+    borderWidth: 1,
+    borderColor: '#D9EBE4',
+    overflow: 'hidden',
+  },
+  heroDecoration: {
+    position: 'absolute',
+    width: 146,
+    height: 146,
+    borderRadius: 73,
+    right: -80,
+    top: -65,
+    borderWidth: 22,
+    borderColor: '#DCEFE8',
+  },
+  eyebrowBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFFCC',
+    marginBottom: 16,
+  },
+  eyebrowDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: '#459780',
+  },
   eyebrow: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.textMuted,
-    marginBottom: 10,
+    color: '#387A68',
   },
   title: {
-    fontSize: 26,
-    lineHeight: 36,
+    fontSize: 24,
+    lineHeight: 34,
     fontWeight: '700',
     color: colors.text,
+    letterSpacing: -0.7,
   },
   intro: {
-    fontSize: 14,
+    fontSize: 13,
     lineHeight: 22,
     color: colors.textMuted,
     marginTop: 12,
-    marginBottom: 24,
+    marginBottom: 0,
+  },
+  sectionHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 26,
+    marginBottom: 12,
+    paddingHorizontal: 2,
+  },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
+  sectionBadge: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#61716B',
+    backgroundColor: '#E8EEEB',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
   card: {
     borderRadius: 24,
     backgroundColor: colors.surface,
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
+    borderWidth: 1,
+    borderColor: '#E4EAE7',
+    boxShadow: '0px 5px 18px rgba(31, 71, 59, 0.04)',
   },
-  item: { paddingVertical: 18 },
+  item: {
+    paddingVertical: 18,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  itemNumberTile: {
+    width: 32,
+    height: 32,
+    borderRadius: 11,
+    backgroundColor: '#EFF6F3',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  itemNumber: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#478571',
+    fontVariant: ['tabular-nums'],
+  },
+  itemCopy: { flex: 1, minWidth: 0 },
   itemBorder: { borderTopWidth: 1, borderTopColor: colors.line },
   itemTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
   itemDescription: {
@@ -243,23 +352,37 @@ const s = StyleSheet.create({
   notice: {
     padding: 18,
     borderRadius: 18,
-    backgroundColor: '#FFF1EF',
+    backgroundColor: '#FFF5F2',
     marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#F3DFD9',
   },
+  noticeHeading: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  noticeIcon: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#F5DDD5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  noticeIconText: { fontSize: 12, fontWeight: '700', color: '#A65B48' },
   noticeTitle: {
     fontSize: 13,
     lineHeight: 20,
     fontWeight: '700',
     color: '#A53B35',
+    flex: 1,
   },
   noticeText: { fontSize: 12, lineHeight: 20, color: '#885B57', marginTop: 6 },
   consent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    padding: 16,
+    padding: 18,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: '#D7DFDB',
     borderRadius: 18,
     marginTop: 24,
     backgroundColor: colors.surface,
@@ -268,6 +391,7 @@ const s = StyleSheet.create({
     borderColor: colors.primaryDark,
     backgroundColor: '#EDF9F3',
   },
+  required: { color: '#387A68', fontSize: 12, fontWeight: '700' },
   checkbox: {
     width: 24,
     height: 24,
@@ -290,7 +414,7 @@ const s = StyleSheet.create({
     color: colors.text,
   },
   submit: {
-    minHeight: 54,
+    minHeight: 56,
     padding: 16,
     borderRadius: 18,
     backgroundColor: colors.danger,
@@ -300,7 +424,8 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     gap: 10,
   },
-  submitDisabled: { backgroundColor: '#B4BFBA' },
+  submitDisabled: { backgroundColor: '#E2E7E5' },
+  submitTextDisabled: { color: '#697770' },
   submitText: { fontSize: 15, fontWeight: '700', color: colors.surface },
   error: { color: colors.danger, fontSize: 13, lineHeight: 21, marginTop: 16 },
   disabled: { opacity: 0.35 },
