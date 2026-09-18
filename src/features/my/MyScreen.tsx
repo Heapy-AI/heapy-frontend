@@ -269,9 +269,9 @@ export function MyScreen({ navigation, active = true }: Props) {
           }}
           disabled={logout.isPending}
           onPress={() => navigation.navigate('AccountWithdrawal')}
-          style={({ pressed }) => [s.logout, pressed && s.pressed]}
+          style={({ pressed }) => [s.withdrawal, pressed && s.pressed]}
         >
-          <Text style={s.logoutText}>회원 탈퇴</Text>
+          <Text style={s.withdrawalText}>회원 탈퇴</Text>
         </Pressable>
       </ScrollView>
       <ConfirmModal
@@ -424,6 +424,17 @@ const s = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   logoutText: { color: colors.danger, fontSize: 14, fontWeight: '600' },
+  withdrawal: {
+    marginTop: 12,
+    minHeight: 48,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#D3D8DC',
+    backgroundColor: '#EEF0F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  withdrawalText: { color: '#505C66', fontSize: 14, fontWeight: '600' },
   stateCard: {
     padding: 24,
     borderRadius: 28,
