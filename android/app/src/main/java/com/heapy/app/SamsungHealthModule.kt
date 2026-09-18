@@ -3,6 +3,7 @@ package com.heapy.app
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
@@ -100,18 +101,8 @@ class SamsungHealthModule(private val context: ReactApplicationContext) : ReactC
     }
 
     /**
-     * 작성자: 고수연 — 삼성 헬스를 연다. 앱 홈까지만 간다.
-     *
-     * 설정·정보 화면으로 바로 보내려고 내부 액티비티와 인텐트 필터의 액션까지 넷을 시도해
-     * 봤지만 기기에서 모두 열리지 않았다. ActivityNotFoundException 이었고 권한 거부도
-     * 아니었다. 인텐트 필터가 dumpsys 에 보인다고 밖에서 부를 수 있다는 뜻은 아니다.
-     *
-     * 개발자 모드 화면(data.phd.PhdDeveloperModeActivity)은 특히 쓸 수 없다. 삼성 헬스가
-     * ComponentEnabler 로 그 컴포넌트를 켜고 끄기 때문에, 개발자 모드가 꺼져 있으면 아예
-     * 사라진다. 처음 켜는 데는 못 쓰고, 켜져 있을 때 열어도 할 일이 없다.
-     *
-     * 그래서 홈만 연다. 남은 단계는 안내 시트(SamsungSetupGuide)가 글과 그림으로 말한다.
-     * 그 안내가 홈에서 시작하는 순서라 문구와 실제가 맞는다.
+     * 작성자: 김진우 — 공개 딥링크 진입점을 통해 삼성 헬스 정보 화면을 연다.
+     * 딥링크 실행이 불가능한 버전에서는 홈을 열어 수동 설정을 이어갈 수 있게 한다.
      */
     @ReactMethod
     fun openSamsungHealth(promise: Promise) {
@@ -119,6 +110,18 @@ class SamsungHealthModule(private val context: ReactApplicationContext) : ReactC
         if (activity == null) {
             promise.reject("SAMSUNG_ACTIVITY", "앱 화면에서 다시 시도해 주세요.")
             return
+        }
+        val about = Intent(Intent.ACTION_VIEW, Uri.parse(SAMSUNG_HEALTH_ABOUT))
+            .setPackage(SAMSUNG_HEALTH)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try {
+            activity.startActivity(about)
+            promise.resolve("about")
+            return
+        } catch (error: ActivityNotFoundException) {
+            // 작성자: 김진우 — 딥링크를 처리하지 못하면 기존 홈 실행으로 이어간다.
+        } catch (error: SecurityException) {
+            // 작성자: 김진우 — 외부 딥링크 실행이 제한된 버전에서도 홈 진입은 시도한다.
         }
         val launch = context.packageManager.getLaunchIntentForPackage(SAMSUNG_HEALTH)
         if (launch == null) {
@@ -130,6 +133,8 @@ class SamsungHealthModule(private val context: ReactApplicationContext) : ReactC
             promise.resolve("home")
         } catch (error: ActivityNotFoundException) {
             promise.reject("SAMSUNG_NOT_INSTALLED", "삼성 헬스를 설치한 뒤 다시 시도해 주세요.")
+        } catch (error: SecurityException) {
+            promise.reject("SAMSUNG_UNAVAILABLE", "삼성 헬스를 직접 열어 설정해 주세요.")
         }
     }
 
@@ -242,6 +247,8 @@ class SamsungHealthModule(private val context: ReactApplicationContext) : ReactC
 
     private companion object {
         const val SAMSUNG_HEALTH = "com.sec.android.app.shealth"
+        const val SAMSUNG_HEALTH_ABOUT =
+            "samsunghealth://shealth.samsung.com/deepLink?action=view&sc_id=app.main&destination=settings.about"
     }
 
     override fun invalidate() {

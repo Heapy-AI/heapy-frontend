@@ -50,10 +50,7 @@ export const needsDeveloperMode = (error: unknown) => {
     typeof failure?.message === 'string' && failure.message.includes('개발자 모드')
   );
 };
-// 작성자: 고수연 — 삼성 헬스 앱을 연다. 홈까지만 간다.
-//
-// 설정·정보 화면으로 바로 보내려고 내부 액티비티와 인텐트 필터의 액션까지 시도해 봤지만
-// 기기에서 열리지 않았다. 남은 단계는 안내 시트가 글과 그림으로 말한다.
+// 작성자: 김진우 — 삼성 헬스 정보 화면을 열고, 딥링크 실행 실패 시 네이티브에서 홈으로 연결한다.
 export async function openSamsungHealth(): Promise<void> {
   if (Platform.OS !== 'android')
     throw new Error('삼성헬스 연결은 Android 휴대폰에서 사용할 수 있어요.');

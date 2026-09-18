@@ -20,12 +20,9 @@ import {
 import { colors } from '../../shared/theme/tokens';
 import { openSamsungHealth } from './samsungHealth';
 
-// 삼성 헬스에서 밟아야 하는 순서. 4번이 이 안내의 핵심이라 그림을 붙인다.
-// 권한 허용은 여기 적지 않는다. 돌아오면 이 앱이 알아서 다시 묻는다.
+// 작성자: 김진우 — 정보 화면으로 직접 이동한 뒤 진행할 설정 순서다.
 const STEPS = [
-  '삼성 헬스를 엽니다.',
-  '오른쪽 상단 "⋮" 를 눌러 "설정"으로 들어갑니다.',
-  '맨 아래 “삼성헬스 정보”를 누릅니다.',
+  '아래 “설정하러 가기”를 눌러 “삼성 헬스 정보” 화면을 엽니다.',
   '“버전” 항목을 10번 연속 누릅니다.',
   '“개발자 모드”로 전환되었는지 확인합니다.',
 ];
@@ -76,7 +73,10 @@ export function SamsungSetupGuide({
                 <Text style={styles.stepLabel}>{step}</Text>
               </View>
             ))}
-            {/* 네 번째 단계의 화면. 어디를 눌러야 하는지 글로만 적으면 찾지 못한다. */}
+            <Text style={styles.caption}>
+              홈 화면이 열리면 오른쪽 위 ⋮ → 설정 → 삼성 헬스 정보로 들어가
+              주세요.
+            </Text>
             <Image
               accessibilityLabel="삼성 헬스 정보 화면에서 버전 항목을 10번 누르는 위치"
               source={require('../../assets/images/samsung-health-developer-mode.jpg')}
