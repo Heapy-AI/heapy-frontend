@@ -416,15 +416,13 @@ function MetricCard({
         }}
       >
         {minutes ? (
-          // 작성자: 김진우 — 과거 기록 괄호와 작은 단위 표시는 팀원 디자인을 유지한다.
-          hourParts(value).map(([amount, suffix], i, all) => (
+          // 작성자: 김진우 — 다른 수치 카드처럼 과거 기록은 숫자만 괄호로 감싸고 단위는 밖에 둔다.
+          hourParts(value).map(([amount, suffix]) => (
             <View key={suffix} style={hs.metricAmount}>
               <Text style={[hs.value, { color }]}>
-                {stale && i === 0 ? '(' + amount : amount}
+                {stale ? '(' + amount + ')' : amount}
               </Text>
-              <Text style={hs.metricUnit}>
-                {stale && i === all.length - 1 ? suffix + ')' : suffix}
-              </Text>
+              <Text style={hs.metricUnit}>{suffix}</Text>
             </View>
           ))
         ) : (

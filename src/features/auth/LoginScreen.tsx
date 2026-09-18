@@ -24,7 +24,7 @@ import { PrimaryButton } from '../../shared/components/PrimaryButton';
 import { heapyApi } from '../../shared/api/heapyApi';
 import { tokenStorage } from '../../shared/storage/tokenStorage';
 import { onboardingDraft } from '../onboarding/onboardingDraft';
-import { ApiError } from '../../shared/api/client';
+import { loginErrorMessage } from './loginErrorMessage';
 import { colors } from '../../shared/theme/tokens';
 import { KeyboardAwareScrollView } from '../../shared/components/KeyboardAwareScrollView';
 import { HeapyLogo } from '../../shared/components/HeapyLogo';
@@ -126,8 +126,12 @@ export function LoginScreen({ navigation }: Props) {
               render={({ field: { value, onChange, onBlur } }) => (
                 <FormField
                   label="이메일"
+                  editable={!mutation.isPending}
                   value={value}
-                  onChangeText={onChange}
+                  onChangeText={text => {
+                    onChange(text);
+                    mutation.reset();
+                  }}
                   onBlur={onBlur}
                   underlineColorAndroid="transparent"
                   placeholder="이메일 주소를 입력해 주세요"
@@ -146,8 +150,12 @@ export function LoginScreen({ navigation }: Props) {
               render={({ field: { value, onChange, onBlur } }) => (
                 <FormField
                   label="비밀번호"
+                  editable={!mutation.isPending}
                   value={value}
-                  onChangeText={onChange}
+                  onChangeText={text => {
+                    onChange(text);
+                    mutation.reset();
+                  }}
                   onBlur={onBlur}
                   underlineColorAndroid="transparent"
                   placeholder="비밀번호를 입력해 주세요"
@@ -161,10 +169,12 @@ export function LoginScreen({ navigation }: Props) {
               )}
             />
             {mutation.error ? (
-              <Text style={styles.error}>
-                {mutation.error instanceof ApiError
-                  ? mutation.error.message
-                  : '로그인에 실패했습니다.'}
+              <Text
+                style={styles.error}
+                accessibilityRole="alert"
+                accessibilityLiveRegion="polite"
+              >
+                {loginErrorMessage(mutation.error)}
               </Text>
             ) : null}
             <View style={styles.submit}>

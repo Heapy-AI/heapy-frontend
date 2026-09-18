@@ -57,15 +57,40 @@ export const tokenStorage = {
     writes = task.catch(() => {});
     await task;
   },
-  async clear(): Promise<void> {
-    await NativeModules.HeapyPush?.session('', '').catch(() => {});
+  // 작성자: 김진우 — 늦은 갱신 응답이 로그아웃이나 새 로그인을 덮어쓰지 않는다.
+  async replaceIfCurrent(
+    expectedAccessToken: string,
+    tokens: Tokens,
+  ): Promise<boolean> {
+    const expectedVersion = version;
+    const current = await this.get();
+    if (
+      version !== expectedVersion ||
+      current?.accessToken !== expectedAccessToken
+    )
+      return false;
+    await this.save(tokens);
+    return (await this.get())?.accessToken === tokens.accessToken;
+  },
+  async clear(expectedAccessToken?: string): Promise<boolean> {
+    if (expectedAccessToken) {
+      const expectedVersion = version;
+      const current = await this.get();
+      if (
+        version !== expectedVersion ||
+        current?.accessToken !== expectedAccessToken
+      )
+        return false;
+    }
     version++;
     cached = null;
     hydration = undefined;
     const task = writes.then(async () => {
       await Keychain.resetGenericPassword({ service: SERVICE });
+      await NativeModules.HeapyPush?.session('', '').catch(() => {});
     });
     writes = task.catch(() => {});
     await task;
+    return true;
   },
 };

@@ -43,6 +43,10 @@ export const heapyApi = {
       headers: { 'Idempotency-Key': key },
     });
   },
+  // 작성자: 김진우 — 사용자 ID는 보내지 않고 로그인 토큰의 본인 계정만 탈퇴한다.
+  async withdrawAccount() {
+    await apiClient.delete<void>('/api/users/me', { timeout: 130000 });
+  },
   async getTerms() {
     return (
       await apiClient.get<TermsItem[]>('/api/terms', {

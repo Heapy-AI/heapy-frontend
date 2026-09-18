@@ -16,6 +16,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { RootStackParamList } from '../../navigation/routes';
 import { createSessionNavigationState } from '../../navigation/onboardingFlow';
 import { heapyApi } from '../../shared/api/heapyApi';
+import { clearSamsungSyncState } from '../dataConnection/samsungSync';
 import { tokenStorage } from '../../shared/storage/tokenStorage';
 import { colors } from '../../shared/theme/tokens';
 import { createIdempotencyKey } from '../../shared/utils/idempotency';
@@ -84,6 +85,7 @@ export function MyScreen({ navigation, active = true }: Props) {
   const logout = useMutation({
     mutationFn: async () => {
       await heapyApi.logout(logoutKey.current);
+      clearSamsungSyncState();
       await client.cancelQueries();
       await tokenStorage.clear();
       onboardingDraft.clear();
@@ -257,6 +259,19 @@ export function MyScreen({ navigation, active = true }: Props) {
           ) : (
             <Text style={s.logoutText}>로그아웃</Text>
           )}
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="회원 탈퇴"
+          accessibilityState={{
+            disabled: logout.isPending,
+            busy: logout.isPending,
+          }}
+          disabled={logout.isPending}
+          onPress={() => navigation.navigate('AccountWithdrawal')}
+          style={({ pressed }) => [s.logout, pressed && s.pressed]}
+        >
+          <Text style={s.logoutText}>회원 탈퇴</Text>
         </Pressable>
       </ScrollView>
       <ConfirmModal
