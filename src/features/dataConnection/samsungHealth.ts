@@ -31,10 +31,6 @@ export async function requestSamsungPermissions(): Promise<SamsungPermission> {
   return result;
 }
 
-// 작성자: 고수연 — 삼성 헬스를 연다. 어느 화면까지 갔는지 돌려준다. 앞쪽일수록 목적지에
-// 가깝다. 삼성이 이 화면들을 여는 인텐트를 공개하지 않아 기기와 버전마다 갈린다.
-export type SamsungLanding = 'about' | 'settings' | 'home';
-
 // 작성자: 고수연 — 같은 오류가 화면에 따라 다른 뜻이 된다. 내건강에서 새로고침한 사람에게
 // 필요한 다음 행동은 '연동 상태를 확인하라'이고, 연동 화면에 서 있는 사람에게는 '개발자 모드를
 // 켜라'다. 네이티브의 한 줄로는 둘을 다 담을 수 없어 화면 쪽에서 가른다.
@@ -54,7 +50,11 @@ export const needsDeveloperMode = (error: unknown) => {
     typeof failure?.message === 'string' && failure.message.includes('개발자 모드')
   );
 };
-export async function openSamsungHealth(): Promise<SamsungLanding> {
+// 작성자: 고수연 — 삼성 헬스 앱을 연다. 홈까지만 간다.
+//
+// 설정·정보 화면으로 바로 보내려고 내부 액티비티와 인텐트 필터의 액션까지 시도해 봤지만
+// 기기에서 열리지 않았다. 남은 단계는 안내 시트가 글과 그림으로 말한다.
+export async function openSamsungHealth(): Promise<void> {
   if (Platform.OS !== 'android')
     throw new Error('삼성헬스 연결은 Android 휴대폰에서 사용할 수 있어요.');
   const bridge = NativeModules.HeapySamsungHealth;
@@ -62,7 +62,7 @@ export async function openSamsungHealth(): Promise<SamsungLanding> {
     throw new Error(
       '이 앱 버전에서는 바로 열 수 없어요. 삼성 헬스를 직접 실행해 주세요.',
     );
-  return bridge.openSamsungHealth();
+  await bridge.openSamsungHealth();
 }
 
 export async function readSamsungTodaySteps(): Promise<SamsungSteps> {
