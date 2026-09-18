@@ -22,6 +22,10 @@ import { AnalysisDetailModal } from '../../shared/components/AnalysisDetailModal
 import { MetricIcon } from './MetricIcon';
 import { HealthMotionContext, useHealthMotion } from './useHealthMotion';
 import { refreshSamsungConnection } from './healthRefresh';
+import {
+  needsDeveloperMode,
+  SAMSUNG_NOT_CONNECTED,
+} from '../dataConnection/samsungHealth';
 import { HealthIcon } from './HealthIcon';
 import { MissionRecommendationCard } from '../missions/MissionRecommendationCard';
 import { MissionSummaryCard } from '../missions/MissionSummaryCard';
@@ -555,8 +559,12 @@ export function HealthScreen({
       if (failure?.status === 'rejected') throw failure.reason;
     } catch (error) {
       setSyncNotice('');
+      // 작성자: 고수연 — 개발자 모드 때문이라도 이 화면에서는 설정 방법을 말하지 않는다.
+      // 여기에는 연동 버튼이 없어서, 지금 할 수 있는 일은 마이페이지로 가는 것뿐이다.
       setSyncError(
-        error instanceof Error
+        needsDeveloperMode(error)
+          ? SAMSUNG_NOT_CONNECTED
+          : error instanceof Error
           ? error.message
           : '삼성헬스 연결 상태를 확인하지 못했어요.',
       );
